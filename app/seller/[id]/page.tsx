@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { sampleSellers, sampleReviews, type Seller } from "@/components/sellers-data";
 import { sampleListings } from "@/components/listings-data";
 import { createClient } from "@/lib/supabase/server";
+import { fetchListingsBySeller } from "@/lib/listings-query";
 import SellerProfileBody from "@/components/SellerProfileBody";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -66,7 +67,8 @@ export default async function SellerProfilePage({ params }: { params: Promise<{ 
       if (profileRow) {
         seller = realProfileToSeller(profileRow);
         reviews = [];
-        otherListings = [];
+        // Show the seller's real posted listings on their profile.
+        otherListings = await fetchListingsBySeller(id);
       }
     } catch {
       // Supabase not configured (.env.local absent) — fall through to 404.

@@ -77,9 +77,67 @@ function rowToListing(row: ListingRow): Listing {
   };
 }
 
-// Fetch a page of real listings from the DB, filtered + ordered to match the
-// browse index (category, country, availability, created_at desc). Returns
-// both the listings and whether another page exists, for pagination.
+// Fetch all public listings belonging to one seller — for their public
+// profile page's "other listings" grid. Without this a real seller's posted
+// items don't show on their own profile.
+export async function fetchListingsBySeller(sellerId: string): Promise<Listing[]> {
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("listings")
+      .select(
+        `id, seller_id, title_en, title_ar, price, currency, city_en, city_ar,
+         country, category, images, availability, created_at,
+         featured_until, featured_priority,
+         seller:profiles ( display_name, full_name, id_verified )`
+      )
+      .eq("seller_id", sellerId)
+      .eq("status", "active")
+      .neq("availability", "inactive")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("[fetchListingsBySeller] query failed:", error.message);
+      return [];
+    }
+    return (data as unknown as ListingRow[]).map(rowToListing);
+  } catch (err) {
+    console.error("[fetchListingsBySeller] threw:", err instanceof Error ? err.message : err);
+    return [];
+  }
+}
+
+// Fetch ONE listing by id, adapted to the UI shape. Returns null if it
+// doesn't exist (or on error / no Supabase) so the caller can fall back to
+// sample data before deciding it's a genuine 404. This is the read path the
+// listing detail page needs — without it, real posted listings (UUID ids
+// not present in the sample array) 404 on view.
+export async function fetchListingById(id: string): Promise<Listing | null> {
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("listings")
+      .select(
+        `id, seller_id, title_en, title_ar, price, currency, city_en, city_ar,
+         country, category, images, availability, created_at,
+         featured_until, featured_priority,
+         seller:profiles ( display_name, full_name, id_verified )`
+      )
+      .eq("id", id)
+      .maybeSingle();
+
+    if (error) {
+      console.error("[fetchListingById] query failed:", error.message);
+      return null;
+    }
+    if (!data) return null;
+    return rowToListing(data as unknown as ListingRow);
+  } catch (err) {
+    console.error("[fetchListingById] threw:", err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
 //
 // Degrades gracefully: if Supabase isn't configured or the query errors, it
 // returns an empty result rather than throwing, so the feed can fall back to

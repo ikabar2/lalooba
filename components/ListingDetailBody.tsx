@@ -14,6 +14,11 @@ export default function ListingDetailBody({ listing }: { listing: Listing }) {
   const { lang, t } = useLanguage();
   const isFeatured = getFeaturedIdSet(sampleListings).has(listing.id);
   const isSold = listing.availability === "sold";
+  // A real posted listing has a UUID id and a real seller UUID behind it;
+  // sample listings use short ids ("l1") with no real account. This gates
+  // whether "message seller" opens a real conversation.
+  const isRealListing =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(listing.sellerId);
 
   return (
     <div>
@@ -81,15 +86,17 @@ export default function ListingDetailBody({ listing }: { listing: Listing }) {
           </div>
 
           {/*
-            NOTE: sample listings use string ids ("1", "2"...) which aren't
-            real Supabase UUIDs, and sellerId below is a placeholder.
-            Once real listings exist in Supabase, pass the real seller's
-            auth UID here instead — that's what get_or_create_conversation
-            actually needs to create a real conversation.
+            For REAL listings, listing.sellerId is the seller's profile UUID
+            (profiles.id === their auth UID), which is exactly what
+            get_or_create_conversation needs — so we pass it straight through.
+            Sample listings use non-UUID ids ("l1"...) and a synthetic
+            sellerId that has no real account behind it; MessageSellerButton
+            detects that and shows the "sample listing" notice instead of
+            trying to open a real conversation.
           */}
           <MessageSellerButton
-            sellerId={`00000000-0000-0000-0000-00000000000${listing.id}`}
-            listingId={null}
+            sellerId={listing.sellerId}
+            listingId={isRealListing ? listing.id : null}
             sellerName={listing.seller.name}
           />
 
