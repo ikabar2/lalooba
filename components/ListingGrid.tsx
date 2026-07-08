@@ -1,6 +1,8 @@
 import { cookies } from "next/headers";
 import { sampleListings } from "./listings-data";
 import ListingGridClient from "./ListingGridClient";
+import { fetchListings } from "@/lib/listings-query";
+import type { Listing } from "./ListingCard";
 
 export default async function ListingGrid() {
   // Set by middleware.ts from Vercel's IP geolocation headers.
@@ -9,10 +11,18 @@ export default async function ListingGrid() {
   const detectedCountry = cookieStore.get("lalooba-country")?.value ?? null;
   const detectedCity = cookieStore.get("lalooba-city")?.value ?? null;
 
-  // Mirrors the "Anyone can view active listings" RLS policy in
-  // 009_listing_availability_status.sql — `inactive` listings (seller took
-  // them down) never show in public browse, even in sample data.
-  const publicListings = sampleListings.filter((l) => l.availability !== "inactive");
+  // REAL listings from the DB (the previously-missing read path), so posts
+  // show on the homepage too. First page only — the homepage is a preview
+  // grid, "See all" links to the full paginated marketplace.
+  const { listings: dbListings } = await fetchListings({ page: 0 });
+
+  // Sample listings still included during the demo phase. Mirrors the
+  // "Anyone can view active listings" RLS policy — `inactive` never shows.
+  const samplepublic = sampleListings.filter((l) => l.availability !== "inactive");
+
+  // Real listings lead, then sample; de-dupe by id.
+  const seen = new Set(dbListings.map((l) => l.id));
+  const publicListings: Listing[] = [...dbListings, ...samplepublic.filter((l) => !seen.has(l.id))];
 
   // Sort: listings matching the visitor's detected country float to the top,
   // everything else keeps its original relative order (stable sort).

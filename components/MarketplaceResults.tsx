@@ -24,10 +24,11 @@ export default function MarketplaceResults({
 }) {
   const { t } = useLanguage();
   const hasCategory = category && category !== "cat_all";
-  // Featured status is ranked against the whole catalog, not just the
-  // filtered/searched subset shown here — a listing doesn't stop being
-  // "featured" just because someone searched for something else.
-  const featuredIds = getFeaturedIdSet(sampleListings);
+  // Featured status is computed over the listings actually being shown
+  // (real DB listings + sample), merged with the full sample catalog so a
+  // sample listing keeps its featured badge even when the current view is
+  // filtered. getFeaturedIdSet de-dupes internally by id.
+  const featuredIds = getFeaturedIdSet([...results, ...sampleListings]);
 
   // Breadcrumb trail mirrors the one on product pages
   // (components/ListingDetailBody.tsx) so the Home → Marketplace → Category

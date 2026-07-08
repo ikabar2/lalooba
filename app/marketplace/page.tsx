@@ -4,6 +4,12 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { cookies } from "next/headers";
 import type { TranslationKey } from "@/lib/translations";
+import { fetchListings } from "@/lib/listings-query";
+import type { Listing } from "@/components/ListingCard";
+
+// Always fetch fresh on each request so a just-posted listing shows up
+// immediately — no stale full-route cache hiding new posts.
+export const dynamic = "force-dynamic";
 
 export default async function MarketplacePage({
   searchParams,
@@ -18,15 +24,21 @@ export default async function MarketplacePage({
   const market =
     params.market === "CA" || params.market === "US" ? params.market : null;
 
-  // Sample-data filtering for now — swap for a real Postgres query
-  // (full-text search via to_tsvector/tsquery, plus `.eq("category", category)`
-  // and `.eq("country", market)`) once real listings exist. Matches against
-  // both languages so a search typed in Arabic finds the same results as the
-  // same search typed in English, and category filtering works whichever
-  // language built the URL (category values are always the English cat_*
-  // key, never the label). `inactive` listings are excluded here the same
-  // way the "Anyone can view active listings" RLS policy excludes them.
-  const results = sampleListings.filter((l) => {
+  // REAL listings from the DB — this is the read path that was missing.
+  // Posts insert into `listings`; this queries `listings`; so a new post now
+  // appears here. Filtering is done in SQL (indexed) for scale.
+  const { listings: dbListings } = await fetchListings({
+    category,
+    country: market,
+    query: params.q ?? null,
+    page: 0,
+  });
+
+  // Sample listings still shown so the marketplace isn't empty during the
+  // demo phase. Filtered in-memory with the SAME predicates as the DB query
+  // so results are consistent regardless of source. Once there's enough real
+  // inventory, drop this block and show DB listings only.
+  const sampleFiltered = sampleListings.filter((l) => {
     if (l.availability === "inactive") return false;
     const matchesQuery = q
       ? l.title.en.toLowerCase().includes(q) || l.title.ar.toLowerCase().includes(q)
@@ -35,6 +47,11 @@ export default async function MarketplacePage({
     const matchesMarket = market ? l.country === market : true;
     return matchesQuery && matchesCategory && matchesMarket;
   });
+
+  // Real listings first (newest genuine inventory leads), then sample data.
+  // De-dupe by id defensively in case a real listing ever shares a sample id.
+  const seen = new Set(dbListings.map((l) => l.id));
+  const results: Listing[] = [...dbListings, ...sampleFiltered.filter((l) => !seen.has(l.id))];
 
   return (
     <>

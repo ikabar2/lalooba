@@ -183,7 +183,11 @@ export default function PostListingPage() {
       return;
     }
 
+    // Navigate to the marketplace and refresh the Router Cache so the
+    // freshly-inserted listing is fetched from the DB immediately, rather
+    // than showing a cached feed that predates the post.
     router.push("/marketplace");
+    router.refresh();
   }
 
   return (
