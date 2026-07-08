@@ -39,7 +39,9 @@ export default function RootLayout({
         <a href="#main-content" className="skip-link">
           Skip to content
         </a>
-        <DisableInspect />
+        {/* Temporarily disabled for debugging — re-enable once posting is
+            fixed by removing the leading {false && } guard below. */}
+        {false && <DisableInspect />}
         <LanguageProvider>
           <RouteAnnouncer />
           {/* pb-16 on mobile only reserves space for the fixed bottom nav so
