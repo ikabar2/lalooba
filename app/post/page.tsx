@@ -26,6 +26,7 @@ export default function PostListingPage() {
   const [price, setPrice] = useState("");
   const [city, setCity] = useState("");
   const [country, setCountry] = useState("CA");
+  const [category, setCategory] = useState("cat_other");
   const [description, setDescription] = useState("");
   const [images, setImages] = useState<PendingImage[]>([]);
   const [loading, setLoading] = useState(false);
@@ -158,11 +159,17 @@ export default function PostListingPage() {
     // the fraud-check migrations (title, price, city, country, seller_id,
     // images). Inserting here automatically fires the fraud-check trigger
     // from supabase/migrations/002_fraud_check_trigger.sql, once deployed.
+    // Column names match the real schema after migration 002:
+    // title_en / city_en (not the old title / city), plus category and
+    // currency. title_ar / city_ar are left null — a listing is valid with
+    // just the English fields, and the UI falls back to _en when _ar is null.
     const { error: insertError } = await supabase.from("listings").insert({
-      title,
+      title_en: title,
       price: Number(price),
-      city,
+      currency: country === "US" ? "USD" : "CAD",
+      city_en: city,
       country,
+      category,
       description,
       images: uploadedUrls,
       seller_id: userData.user.id,
@@ -293,6 +300,23 @@ export default function PostListingPage() {
               </select>
             </div>
           </div>
+
+          <label className="mb-1 block text-xs font-semibold text-navy-700">Category</label>
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="mb-4 w-full rounded-md border border-navy-100 px-3 py-2 text-sm outline-none focus:border-navy-400"
+          >
+            <option value="cat_clothing">👕 Clothing</option>
+            <option value="cat_food">🍲 Food</option>
+            <option value="cat_crafts">💍 Jewelry &amp; Accessories</option>
+            <option value="cat_furniture">🛋️ Furniture</option>
+            <option value="cat_electronics">💻 Electronics</option>
+            <option value="cat_cars">🚗 Cars</option>
+            <option value="cat_barbershop">📚 Books, Arts &amp; Gifts</option>
+            <option value="cat_tax">🧘 Health &amp; Wellness</option>
+            <option value="cat_other">➕ Other</option>
+          </select>
 
           <label className="mb-1 block text-xs font-semibold text-navy-700">Description</label>
           <textarea
