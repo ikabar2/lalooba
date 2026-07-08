@@ -1,32 +1,35 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
-import { sampleOffers } from "@/components/jeebli-data";
+import { fetchJeebLiOffers } from "@/lib/jeebli-query";
 import JeebLiOfferCard from "@/components/JeebLiOfferCard";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { countryNames } from "@/lib/country-names";
+
+export const dynamic = "force-dynamic";
 
 export default async function JeebLiBrowsePage() {
   const cookieStore = await cookies();
   const detectedCity = cookieStore.get("lalooba-city")?.value ?? null;
   const detectedCountry = cookieStore.get("lalooba-country")?.value ?? null;
 
-  // Same pattern as the marketplace grid: visitor's own country's incoming
-  // trips (destination matches their detected country) float to the top.
-  // Sorting uses the .en field as a stable key regardless of display
-  // language — destinationCountry is now {en, ar} for bilingual display.
+  const offers = await fetchJeebLiOffers();
+
+  // Visitor's own country's incoming trips (destination matches their
+  // detected country) float to the top. destination_country is free text, so
+  // match loosely against the country name.
   const detectedCountryName =
     detectedCountry && detectedCountry in countryNames
       ? countryNames[detectedCountry as keyof typeof countryNames].en
       : null;
 
   const sortedOffers = detectedCountryName
-    ? [...sampleOffers].sort((a, b) => {
-        const aMatch = a.destinationCountry.en === detectedCountryName ? 0 : 1;
-        const bMatch = b.destinationCountry.en === detectedCountryName ? 0 : 1;
+    ? [...offers].sort((a, b) => {
+        const aMatch = a.destinationCountry.en.toLowerCase().includes(detectedCountryName.toLowerCase()) ? 0 : 1;
+        const bMatch = b.destinationCountry.en.toLowerCase().includes(detectedCountryName.toLowerCase()) ? 0 : 1;
         return aMatch - bMatch;
       })
-    : sampleOffers;
+    : offers;
 
   return (
     <>
@@ -57,11 +60,20 @@ export default async function JeebLiBrowsePage() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {sortedOffers.map((offer) => (
-              <JeebLiOfferCard key={offer.id} offer={offer} />
-            ))}
-          </div>
+          {sortedOffers.length === 0 ? (
+            <div className="rounded-xl border border-navy-100 bg-white p-10 text-center">
+              <p className="mb-1 font-display text-lg text-navy-900">No trips posted yet</p>
+              <p className="text-sm text-navy-600">
+                Be the first — post a trip and offer your unused baggage space.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {sortedOffers.map((offer) => (
+                <JeebLiOfferCard key={offer.id} offer={offer} />
+              ))}
+            </div>
+          )}
         </main>
       </div>
 

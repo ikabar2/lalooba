@@ -6,6 +6,7 @@ import { useLanguage } from "@/lib/language-context";
 import type { TranslationKey } from "@/lib/translations";
 import { countryNames } from "@/lib/country-names";
 import { bi } from "@/lib/bilingual";
+import { formatSDG } from "@/lib/currency";
 import { categoryIcons } from "./Header";
 
 export type Listing = {
@@ -16,7 +17,14 @@ export type Listing = {
   country: "CA" | "US";
   images: string[]; // first image is the cover/display photo
   category: TranslationKey; // one of the cat_* keys from translations.ts
-  sellerId: string; // links to a Seller in sellers-data.ts
+  // For bank-transfer (cat_bank) listings: the SDG amount the seller gives
+  // for the posted local price. Seller-entered, not auto-converted.
+  sdgAmount?: number | null;
+  // For Homemade Cook (cat_homemade) listings: portions available and how
+  // the buyer receives it. Null for other categories.
+  quantity?: number | null;
+  fulfillment?: "pickup" | "delivery" | "both" | null;
+  sellerId: string; // links to a Seller profile
   seller: {
     name: string;
     avatarInitials: string;
@@ -59,6 +67,7 @@ export default function ListingCard({
   // boundary to catch it after the fact.
   const coverImage = listing.images[0] ?? "/images/placeholder.jpg";
   const isSold = listing.availability === "sold";
+
 
   return (
     <Link
@@ -141,6 +150,9 @@ export default function ListingCard({
           <span className="text-lg font-extrabold tabular-nums text-navy-900">${listing.price}</span>
           <span className="text-[11px] font-bold text-navy-500">{currencyCode[listing.country]}</span>
         </p>
+        {listing.category === "cat_bank" && listing.sdgAmount != null && (
+          <p className="mb-1 text-[11px] font-semibold text-gold-500">→ SDG {formatSDG(listing.sdgAmount)}</p>
+        )}
         <p className="mb-1.5 line-clamp-2 text-sm font-medium leading-snug text-navy-800">
           {listing.title[lang]}
         </p>

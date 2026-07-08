@@ -1,24 +1,52 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useLanguage } from "@/lib/language-context";
 import { Listing } from "./ListingCard";
-import { countryNames, sampleListings } from "./listings-data";
+import { countryNames } from "@/lib/country-names";
 import { bi } from "@/lib/bilingual";
+import { currencyForCountry, formatSDG } from "@/lib/currency";
 import { getFeaturedIdSet } from "@/lib/featured";
+import { createClient } from "@/lib/supabase/client";
 import MessageSellerButton from "./MessageSellerButton";
 import ImageGallery from "./ImageGallery";
 import Breadcrumbs from "./Breadcrumbs";
 
 export default function ListingDetailBody({ listing }: { listing: Listing }) {
   const { lang, t } = useLanguage();
-  const isFeatured = getFeaturedIdSet(sampleListings).has(listing.id);
+  const isFeatured = getFeaturedIdSet([listing]).has(listing.id);
   const isSold = listing.availability === "sold";
+
+  // Detect whether the current viewer is the seller, so we don't offer a
+  // "message yourself" button on your own listing (which the DB rejects via
+  // the distinct_participants CHECK anyway). Resolved client-side after
+  // mount; defaults to false so nothing flickers for signed-out visitors.
+  const [isOwnListing, setIsOwnListing] = useState(false);
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const supabase = createClient();
+        const { data } = await supabase.auth.getUser();
+        if (active && data.user && data.user.id === listing.sellerId) {
+          setIsOwnListing(true);
+        }
+      } catch {
+        /* Supabase not configured — leave as not-own, button stays visible */
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [listing.sellerId]);
+
   // A real posted listing has a UUID id and a real seller UUID behind it;
   // sample listings use short ids ("l1") with no real account. This gates
   // whether "message seller" opens a real conversation.
   const isRealListing =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(listing.sellerId);
+
 
   return (
     <div>
@@ -50,7 +78,32 @@ export default function ListingDetailBody({ listing }: { listing: Listing }) {
           <h1 className="mb-1 font-display text-2xl font-medium text-navy-900">
             {listing.title[lang]}
           </h1>
-          <p className="mb-3 text-xl font-bold text-navy-800">${listing.price}</p>
+          <p className="mb-1 text-xl font-bold text-navy-800">
+            {currencyForCountry[listing.country]} {listing.price.toLocaleString("en-US")}
+          </p>
+          {listing.category === "cat_bank" && listing.sdgAmount != null && (
+            <p className="mb-3 text-sm font-semibold text-gold-500">
+              → SDG {formatSDG(listing.sdgAmount)}
+            </p>
+          )}
+          {listing.category === "cat_homemade" && (
+            <div className="mb-3 flex flex-wrap gap-2">
+              {listing.quantity != null && (
+                <span className="rounded-full bg-navy-50 px-3 py-1 text-xs font-semibold text-navy-700">
+                  {listing.quantity} {listing.quantity === 1 ? "portion" : "portions"} available
+                </span>
+              )}
+              {listing.fulfillment && (
+                <span className="rounded-full bg-navy-50 px-3 py-1 text-xs font-semibold text-navy-700">
+                  {listing.fulfillment === "both"
+                    ? "Pickup or delivery"
+                    : listing.fulfillment === "delivery"
+                      ? "Delivery"
+                      : "Pickup"}
+                </span>
+              )}
+            </div>
+          )}
           <p className="mb-6 flex items-center gap-1.5 text-sm text-navy-600">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M12 21s-7-7.5-7-12a7 7 0 1114 0c0 4.5-7 12-7 12z" />
@@ -85,20 +138,17 @@ export default function ListingDetailBody({ listing }: { listing: Listing }) {
             </div>
           </div>
 
-          {/*
-            For REAL listings, listing.sellerId is the seller's profile UUID
-            (profiles.id === their auth UID), which is exactly what
-            get_or_create_conversation needs — so we pass it straight through.
-            Sample listings use non-UUID ids ("l1"...) and a synthetic
-            sellerId that has no real account behind it; MessageSellerButton
-            detects that and shows the "sample listing" notice instead of
-            trying to open a real conversation.
-          */}
-          <MessageSellerButton
-            sellerId={listing.sellerId}
-            listingId={isRealListing ? listing.id : null}
-            sellerName={listing.seller.name}
-          />
+          {isOwnListing ? (
+            <div className="rounded-lg border border-navy-100 bg-navy-50/50 px-4 py-3 text-sm text-navy-600">
+              {t("own_listing_note")}
+            </div>
+          ) : (
+            <MessageSellerButton
+              sellerId={listing.sellerId}
+              listingId={isRealListing ? listing.id : null}
+              sellerName={listing.seller.name}
+            />
+          )}
 
           {/* Delivery/pickup question — separate, lower-emphasis prompt from
               the main "message seller" CTA above, so it reads as a specific

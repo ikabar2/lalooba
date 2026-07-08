@@ -1,14 +1,13 @@
 "use client";
 
-import ListingCard from "./ListingCard";
+import ListingCard, { type Listing } from "./ListingCard";
 import ScrollReveal from "./ScrollReveal";
-import { sampleListings } from "./listings-data";
 import { getFeaturedListings } from "@/lib/featured";
 import { useLanguage } from "@/lib/language-context";
 
-export default function FeaturedListings() {
+export default function FeaturedListings({ listings }: { listings: Listing[] }) {
   const { t } = useLanguage();
-  const featured = getFeaturedListings(sampleListings);
+  const featured = getFeaturedListings(listings);
 
   // Nothing currently featured (e.g. every recent listing aged past 24h) —
   // hide the whole section entirely. This is also what "no listings yet"

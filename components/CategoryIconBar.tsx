@@ -14,12 +14,13 @@ import { categoryIcons } from "./Header";
 const categoryKeys: TranslationKey[] = [
   "cat_clothing",
   "cat_food",
+  "cat_homemade",
   "cat_crafts",
-  "cat_furniture",
   "cat_electronics",
   "cat_cars",
   "cat_barbershop",
   "cat_tax",
+  "cat_bank",
   "cat_other",
 ];
 

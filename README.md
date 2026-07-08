@@ -72,32 +72,24 @@ already exist.
 - `001_avatars_bucket.sql` — the `avatars` Storage bucket + `profiles.avatar_url`, for profile photos.
 - `002_marketplace_identity.sql` — separates auth identity from marketplace identity: adds `first_name`/`last_name` (private), `display_name` (public), and — importantly — **fixes the "violates foreign key constraint jeeb_li_offers_traveler_id_fkey" posting error**. That error means a user has no `profiles` row (their FK target). This migration adds the missing profiles INSERT policy, backfills a profile for every existing auth user that lacks one, and hardens the signup trigger. The app also self-heals at runtime via `lib/ensure-profile.ts`, called before every post — so even a user who somehow still lacks a profile gets one created the moment they try to post, rather than hitting the FK error.
 
-## Seeding real demo data
+Then run the remaining migrations in order:
+- `003_fix_update_policies.sql` — adds `WITH CHECK` to user-owned UPDATE policies (profiles/listings/reviews/jeeb_li). Without it, updates silently affect 0 rows and return no error — the cause of "saving does nothing."
+- `004_feed_performance_indexes.sql` — default-feed ordering index + pg_trgm title-search indexes for scale.
+- `005_add_bank_category.sql` — adds the Bank Transfers (`cat_bank`) category.
+- `006_homemade_cook.sql` — replaces Furniture with Homemade Cook (`cat_homemade`), adds `quantity` + `fulfillment` columns.
+- `007_harden_signup_trigger.sql` — makes the signup trigger never block account creation (a profile-insert problem inside it used to fail the whole `auth.users` insert). This is the fix for "users can't sign up."
+- `008_bank_sdg_amount.sql` — adds the seller-entered `sdg_amount` for bank-transfer listings.
 
-Once the migration above has run, `scripts/seed.mjs` creates 6 real
-seller accounts (via the Supabase Admin API, not a raw SQL insert into
-`auth.users` — see the comment at the top of that file for why) and their
-listings + reviews, replacing what `components/listings-data.ts` and
-`components/sellers-data.ts` currently fake in the UI:
+## Production data model — no sample data
 
-```bash
-SUPABASE_URL=https://your-project-ref.supabase.co \
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key \
-npm run seed
-```
-
-Get both values from Settings > API in your Supabase project — the
-**service role** key, not the anon key (creating a user as an admin
-requires it). Never put this key in `.env.local`; it's only ever used here,
-run once from your own machine, not inside the deployed app. Safe to
-re-run — it looks up sellers by email first rather than creating
-duplicates.
-
-Once you're ready to point the actual pages at this instead of the sample
-files, swap every `import { sampleListings } from "@/components/listings-data"`
-(and the equivalent for `sellers-data.ts`) for a real Supabase query
-matching the same shape, then delete both files — there's no flag to flip,
-the sample files are dead code the moment nothing imports them.
+This app is production-ready and accepts **only real user data**. The former
+sample-data files (`listings-data.ts`, `sellers-data.ts`, `jeebli-data.ts`)
+and the `scripts/seed.mjs` seeder have been removed. Every feed, listing
+detail, seller profile, and Jeeb Li page reads from Supabase via the query
+modules in `lib/` (`listings-query.ts`, `jeebli-query.ts`). A brand-new
+deployment shows empty states until real users post — which is correct.
+Shared domain types that used to live in the data files now live in
+`components/types.ts`.
 
 ## Jeeb Li — travel baggage sharing
 

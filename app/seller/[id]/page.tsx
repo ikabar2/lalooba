@@ -1,19 +1,19 @@
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
-import { sampleSellers, sampleReviews, type Seller } from "@/components/sellers-data";
-import { sampleListings } from "@/components/listings-data";
+import type { Seller, Review } from "@/components/types";
+import type { Listing } from "@/components/ListingCard";
 import { createClient } from "@/lib/supabase/server";
 import { fetchListingsBySeller } from "@/lib/listings-query";
 import SellerProfileBody from "@/components/SellerProfileBody";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
+export const dynamic = "force-dynamic";
+
 // Adapts a real `profiles` row into the Seller shape SellerProfileBody
-// renders — bridging the sample-data phase and real data without the
-// component needing to know which source it came from. Bilingual fields get
-// the same value in both languages (a real profile stores one city string,
-// not a translated pair yet); reviews/other-listings come back empty until
-// those tables have real rows, which the component already handles.
+// renders. Bilingual fields get the same value in both languages (a profile
+// stores one city string, not a translated pair); reviews come back empty
+// until the reviews feature has real rows.
 function realProfileToSeller(row: {
   id: string;
   display_name: string | null;
@@ -44,35 +44,25 @@ function realProfileToSeller(row: {
 
 export default async function SellerProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  // Sample seller (ids like "s1") first — keeps the demo profiles working.
-  const sampleSeller = sampleSellers.find((s) => s.id === id);
 
-  let seller: Seller | null = sampleSeller ?? null;
-  let reviews = sampleSeller ? sampleReviews.filter((r) => r.sellerId === sampleSeller.id) : [];
-  let otherListings = sampleSeller
-    ? sampleListings.filter((l) => l.sellerId === sampleSeller.id && l.availability !== "inactive")
-    : [];
+  let seller: Seller | null = null;
+  const reviews: Review[] = [];
+  let otherListings: Listing[] = [];
 
-  // Not a sample id — try a real profiles row (this is what makes a real
-  // signed-up user's public profile, linked from /account, actually
-  // resolve). Degrades gracefully if Supabase isn't configured.
-  if (!seller) {
-    try {
-      const supabase = await createClient();
-      const { data: profileRow } = await supabase
-        .from("profiles")
-        .select("id, display_name, full_name, city_en, country, bio_en, id_verified, created_at")
-        .eq("id", id)
-        .maybeSingle();
-      if (profileRow) {
-        seller = realProfileToSeller(profileRow);
-        reviews = [];
-        // Show the seller's real posted listings on their profile.
-        otherListings = await fetchListingsBySeller(id);
-      }
-    } catch {
-      // Supabase not configured (.env.local absent) — fall through to 404.
+  // Real profiles only. A profile that doesn't exist is a genuine 404.
+  try {
+    const supabase = await createClient();
+    const { data: profileRow } = await supabase
+      .from("profiles")
+      .select("id, display_name, full_name, city_en, country, bio_en, id_verified, created_at")
+      .eq("id", id)
+      .maybeSingle();
+    if (profileRow) {
+      seller = realProfileToSeller(profileRow);
+      otherListings = await fetchListingsBySeller(id);
     }
+  } catch {
+    // Supabase not configured — fall through to 404.
   }
 
   if (!seller) return notFound();

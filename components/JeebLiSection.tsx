@@ -3,10 +3,10 @@
 import Link from "next/link";
 import ScrollReveal from "./ScrollReveal";
 import JeebLiOfferCard from "./JeebLiOfferCard";
-import { sampleOffers } from "./jeebli-data";
+import type { JeebLiOffer } from "./types";
 import { useLanguage } from "@/lib/language-context";
 
-export default function JeebLiSection() {
+export default function JeebLiSection({ offers }: { offers: JeebLiOffer[] }) {
   const { t } = useLanguage();
 
   return (
@@ -46,13 +46,15 @@ export default function JeebLiSection() {
           </div>
         </ScrollReveal>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {sampleOffers.map((offer, i) => (
-            <ScrollReveal key={offer.id} delay={i * 70}>
-              <JeebLiOfferCard offer={offer} />
-            </ScrollReveal>
-          ))}
-        </div>
+        {offers.length > 0 && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {offers.map((offer, i) => (
+              <ScrollReveal key={offer.id} delay={i * 70}>
+                <JeebLiOfferCard offer={offer} />
+              </ScrollReveal>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

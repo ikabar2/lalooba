@@ -6,7 +6,6 @@ import ListingCard, { Listing } from "./ListingCard";
 import Breadcrumbs, { type Crumb } from "./Breadcrumbs";
 import MarketSwitcher from "./MarketSwitcher";
 import { categoryIcons } from "./Header";
-import { sampleListings } from "./listings-data";
 import { getFeaturedIdSet } from "@/lib/featured";
 import { useLanguage } from "@/lib/language-context";
 import type { TranslationKey } from "@/lib/translations";
@@ -28,7 +27,7 @@ export default function MarketplaceResults({
   // (real DB listings + sample), merged with the full sample catalog so a
   // sample listing keeps its featured badge even when the current view is
   // filtered. getFeaturedIdSet de-dupes internally by id.
-  const featuredIds = getFeaturedIdSet([...results, ...sampleListings]);
+  const featuredIds = getFeaturedIdSet(results);
 
   // Breadcrumb trail mirrors the one on product pages
   // (components/ListingDetailBody.tsx) so the Home → Marketplace → Category

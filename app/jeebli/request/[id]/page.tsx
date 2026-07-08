@@ -1,11 +1,11 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ensureProfile } from "@/lib/ensure-profile";
 import { friendlyErrorMessage } from "@/lib/error-messages";
-import { sampleOffers } from "@/components/jeebli-data";
+import type { JeebLiOffer } from "@/components/types";
 import { useLanguage } from "@/lib/language-context";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -22,11 +22,68 @@ export default function RequestSpacePage({ params }: { params: Promise<{ id: str
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const offer = sampleOffers.find((o) => o.id === id);
-  if (!offer) return notFound();
+  // Fetch the real offer from the DB (client-side, since this is a Client
+  // Component). null = still loading; false = genuinely not found.
+  const [offer, setOffer] = useState<JeebLiOffer | null | false>(null);
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const supabase = createClient();
+        const { data } = await supabase
+          .from("jeeb_li_offers")
+          .select(
+            `id, traveler_id, origin_city, origin_country, destination_city,
+             destination_country, departure_date, available_weight_kg,
+             price_per_kg, allowed_items,
+             traveler:profiles ( display_name, full_name, id_verified )`
+          )
+          .eq("id", id)
+          .maybeSingle();
+        if (!active) return;
+        if (!data) {
+          setOffer(false);
+          return;
+        }
+        // PostgREST types an embedded to-one relation as an array in the
+        // generated types even though it returns a single object — normalize
+        // to one record before reading its fields.
+        const travelerRaw = (data as { traveler: unknown }).traveler;
+        const traveler = (Array.isArray(travelerRaw) ? travelerRaw[0] : travelerRaw) as
+          | { display_name: string | null; full_name: string | null; id_verified: boolean | null }
+          | null
+          | undefined;
+        const name = traveler?.display_name || traveler?.full_name || "Traveler";
+        const both = (s: string) => ({ en: s, ar: s });
+        setOffer({
+          id: data.id,
+          traveler: {
+            id: data.traveler_id,
+            name,
+            avatarInitials: name.slice(0, 2).toUpperCase(),
+            verified: !!traveler?.id_verified,
+          },
+          originCity: both(data.origin_city),
+          originCountry: both(data.origin_country),
+          destinationCity: both(data.destination_city),
+          destinationCountry: both(data.destination_country),
+          departureDate: data.departure_date,
+          availableWeightKg: data.available_weight_kg,
+          pricePerKg: data.price_per_kg,
+          allowedItems: both(data.allowed_items ?? ""),
+        });
+      } catch {
+        if (active) setOffer(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [id]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!offer) return; // offer not loaded / not found — nothing to request against
     setError(null);
     setLoading(true);
 
@@ -95,6 +152,21 @@ export default function RequestSpacePage({ params }: { params: Promise<{ id: str
 
     router.push(`/messages/${conversationId}`);
   }
+
+  // Loading state — offer not yet fetched.
+  if (offer === null) {
+    return (
+      <>
+        <Header detectedCity={null} />
+        <main className="mx-auto max-w-lg px-5 py-16 text-center text-sm text-navy-500">
+          Loading trip…
+        </main>
+        <Footer />
+      </>
+    );
+  }
+  // Genuinely not found.
+  if (offer === false) return notFound();
 
   const formattedDate = new Date(offer.departureDate).toLocaleDateString(undefined, {
     month: "short",

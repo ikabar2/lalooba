@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useLanguage } from "@/lib/language-context";
-import { JeebLiOffer } from "./jeebli-data";
+import { JeebLiOffer } from "./types";
 
 export default function JeebLiOfferCard({ offer }: { offer: JeebLiOffer }) {
   const { t, lang } = useLanguage();

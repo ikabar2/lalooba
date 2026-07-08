@@ -38,6 +38,9 @@ type ListingRow = {
   city_ar: string | null;
   country: string;
   category: string | null;
+  sdg_amount: number | null;
+  quantity: number | null;
+  fulfillment: string | null;
   images: string[] | null;
   availability: string;
   created_at: string;
@@ -55,7 +58,11 @@ type ListingRow = {
 // Arabic value is null we fall back to the English one so Arabic mode still
 // renders real text instead of a blank — matching the bi() accessor's intent.
 function rowToListing(row: ListingRow): Listing {
-  const sellerName = row.seller?.display_name || row.seller?.full_name || "Member";
+  // PostgREST may hand back an embedded to-one relation as a 1-element array;
+  // normalize to a single record so the name/verified fields resolve.
+  const sellerRaw = row.seller as unknown;
+  const seller = (Array.isArray(sellerRaw) ? sellerRaw[0] : sellerRaw) as ListingRow["seller"];
+  const sellerName = seller?.display_name || seller?.full_name || "Member";
   return {
     id: row.id,
     title: { en: row.title_en, ar: row.title_ar || row.title_en },
@@ -64,11 +71,14 @@ function rowToListing(row: ListingRow): Listing {
     country: row.country === "US" ? "US" : "CA",
     images: row.images && row.images.length > 0 ? row.images : [],
     category: (row.category as TranslationKey) ?? "cat_other",
+    sdgAmount: row.sdg_amount,
+    quantity: row.quantity,
+    fulfillment: (row.fulfillment as Listing["fulfillment"]) ?? null,
     sellerId: row.seller_id ?? "",
     seller: {
       name: sellerName,
       avatarInitials: sellerName.slice(0, 2).toUpperCase(),
-      verified: !!row.seller?.id_verified,
+      verified: !!seller?.id_verified,
     },
     availability: (row.availability as Listing["availability"]) ?? "available",
     createdAt: row.created_at,
@@ -87,7 +97,7 @@ export async function fetchListingsBySeller(sellerId: string): Promise<Listing[]
       .from("listings")
       .select(
         `id, seller_id, title_en, title_ar, price, currency, city_en, city_ar,
-         country, category, images, availability, created_at,
+         country, category, sdg_amount, quantity, fulfillment, images, availability, created_at,
          featured_until, featured_priority,
          seller:profiles ( display_name, full_name, id_verified )`
       )
@@ -119,7 +129,7 @@ export async function fetchListingById(id: string): Promise<Listing | null> {
       .from("listings")
       .select(
         `id, seller_id, title_en, title_ar, price, currency, city_en, city_ar,
-         country, category, images, availability, created_at,
+         country, category, sdg_amount, quantity, fulfillment, images, availability, created_at,
          featured_until, featured_priority,
          seller:profiles ( display_name, full_name, id_verified )`
       )
@@ -159,7 +169,7 @@ export async function fetchListings(
       .from("listings")
       .select(
         `id, seller_id, title_en, title_ar, price, currency, city_en, city_ar,
-         country, category, images, availability, created_at,
+         country, category, sdg_amount, quantity, fulfillment, images, availability, created_at,
          featured_until, featured_priority,
          seller:profiles ( display_name, full_name, id_verified )`,
         { count: "exact" }

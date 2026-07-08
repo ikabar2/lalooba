@@ -28,6 +28,11 @@ export default function PostListingPage() {
   const [country, setCountry] = useState("CA");
   const [category, setCategory] = useState("cat_other");
   const [description, setDescription] = useState("");
+  // Bank-transfer only: seller's SDG amount for the posted local price.
+  const [sdgAmount, setSdgAmount] = useState("");
+  // Homemade Cook only: how many portions, and pickup/delivery.
+  const [quantity, setQuantity] = useState("");
+  const [fulfillment, setFulfillment] = useState("pickup");
   const [images, setImages] = useState<PendingImage[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
@@ -173,6 +178,11 @@ export default function PostListingPage() {
       description,
       images: uploadedUrls,
       seller_id: userData.user.id,
+      // Category-specific fields — only sent when relevant, else null so
+      // they don't apply to listings that don't use them.
+      sdg_amount: category === "cat_bank" && sdgAmount ? Number(sdgAmount) : null,
+      quantity: category === "cat_homemade" && quantity ? Number(quantity) : null,
+      fulfillment: category === "cat_homemade" ? fulfillment : null,
     });
 
     setLoading(false);
@@ -220,6 +230,7 @@ export default function PostListingPage() {
           <div className="mb-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
             {images.map((img, i) => (
               <div key={img.previewUrl} className="group relative aspect-square overflow-hidden rounded-lg">
+                {/* eslint-disable-next-line @next/next/no-img-element -- object-URL blob preview; next/image can't optimize createObjectURL sources */}
                 <img src={img.previewUrl} alt="" className="h-full w-full object-cover" />
                 {i === 0 && (
                   <span className="absolute bottom-1 left-1 rounded bg-navy-900/80 px-1.5 py-0.5 text-[10px] font-semibold text-white">
@@ -314,13 +325,67 @@ export default function PostListingPage() {
             <option value="cat_clothing">👕 Clothing</option>
             <option value="cat_food">🍲 Food</option>
             <option value="cat_crafts">💍 Jewelry &amp; Accessories</option>
-            <option value="cat_furniture">🛋️ Furniture</option>
+            <option value="cat_homemade">🥘 Homemade Cook</option>
             <option value="cat_electronics">💻 Electronics</option>
             <option value="cat_cars">🚗 Cars</option>
             <option value="cat_barbershop">📚 Books, Arts &amp; Gifts</option>
             <option value="cat_tax">🧘 Health &amp; Wellness</option>
+            <option value="cat_bank">🏦 Bank Transfers</option>
             <option value="cat_other">➕ Other</option>
           </select>
+
+          {category === "cat_bank" && (
+            <>
+              <label className="mb-1 block text-xs font-semibold text-navy-700">
+                SDG amount you give (for the price above)
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={sdgAmount}
+                onChange={(e) => setSdgAmount(e.target.value)}
+                placeholder="e.g. 155000"
+                className="mb-1 w-full rounded-md border border-navy-100 px-3 py-2 text-sm outline-none focus:border-navy-400"
+              />
+              <p className="mb-4 text-xs text-navy-500">
+                Your own rate — buyers see “{country === "US" ? "USD" : "CAD"} {price || "100"} → SDG {sdgAmount || "…"}”.
+              </p>
+            </>
+          )}
+
+          {category === "cat_homemade" && (
+            <>
+              <div className="mb-4 grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-navy-700">
+                    Quantity (portions)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value)}
+                    placeholder="e.g. 10"
+                    className="w-full rounded-md border border-navy-100 px-3 py-2 text-sm outline-none focus:border-navy-400"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-navy-700">
+                    Pickup / delivery
+                  </label>
+                  <select
+                    value={fulfillment}
+                    onChange={(e) => setFulfillment(e.target.value)}
+                    className="w-full rounded-md border border-navy-100 px-3 py-2 text-sm outline-none focus:border-navy-400"
+                  >
+                    <option value="pickup">Pickup only</option>
+                    <option value="delivery">Delivery only</option>
+                    <option value="both">Pickup or delivery</option>
+                  </select>
+                </div>
+              </div>
+            </>
+          )}
 
           <label className="mb-1 block text-xs font-semibold text-navy-700">Description</label>
           <textarea

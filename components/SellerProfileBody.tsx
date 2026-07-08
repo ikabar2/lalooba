@@ -1,7 +1,7 @@
 "use client";
 
 import { useLanguage } from "@/lib/language-context";
-import type { Seller, Review } from "./sellers-data";
+import type { Seller, Review } from "./types";
 import type { Listing } from "./ListingCard";
 import ListingCard from "./ListingCard";
 import Breadcrumbs from "./Breadcrumbs";
@@ -10,7 +10,6 @@ import ScrollReveal from "./ScrollReveal";
 import { getFeaturedIdSet } from "@/lib/featured";
 import { countryNames } from "@/lib/country-names";
 import { bi } from "@/lib/bilingual";
-import { sampleListings } from "./listings-data";
 
 function Stars({ rating }: { rating: number }) {
   const full = Math.round(rating);
@@ -32,7 +31,7 @@ export default function SellerProfileBody({
   otherListings: Listing[];
 }) {
   const { lang, t } = useLanguage();
-  const featuredIds = getFeaturedIdSet(sampleListings);
+  const featuredIds = getFeaturedIdSet(otherListings);
 
   return (
     <div>

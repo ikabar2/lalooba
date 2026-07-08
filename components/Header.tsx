@@ -19,11 +19,12 @@ const categoryKeys: TranslationKey[] = [
   "cat_clothing",
   "cat_food",
   "cat_crafts",
-  "cat_furniture",
+  "cat_homemade",
   "cat_electronics",
   "cat_cars",
   "cat_barbershop",
   "cat_tax",
+  "cat_bank",
   "cat_other",
 ];
 
@@ -36,11 +37,12 @@ export const categoryIcons: Record<string, string> = {
   cat_clothing: "👕",
   cat_food: "🍲",
   cat_crafts: "💍", // Jewelry & Accessories (formerly Crafts)
-  cat_furniture: "🛋️",
+  cat_homemade: "🥘",
   cat_electronics: "💻",
   cat_cars: "🚗",
   cat_barbershop: "📚", // Books, Arts & Gifts (formerly Barbershop)
   cat_tax: "🧘", // Health & Wellness (formerly Tax Filing)
+  cat_bank: "🏦", // Bank Transfers / remittances — Sudan-relevant
   cat_other: "➕",
 };
 

@@ -40,6 +40,15 @@ export default function MessageSellerButton({
       return;
     }
 
+    // Can't message yourself — happens when you view your own listing. The DB
+    // has a distinct_participants CHECK that would reject this anyway; catch
+    // it here for a clear message instead of a cryptic DB error.
+    if (userData.user.id === sellerId) {
+      setLoading(false);
+      setError("This is your own listing — you can't message yourself.");
+      return;
+    }
+
     const { data: conversationId, error: rpcError } = await supabase.rpc(
       "get_or_create_conversation",
       { other_user_id: sellerId, p_listing_id: listingId }
@@ -48,15 +57,35 @@ export default function MessageSellerButton({
     setLoading(false);
 
     if (rpcError) {
-      // This is the expected failure for sample-data listings: the seller_id
-      // is a placeholder with no real profile row behind it, so the foreign
-      // key check fails. That's correct behavior, not a bug — it means real
-      // messaging is wired up and only needs a real seller profile to work.
-      setError(
-        "This is a sample listing with no real seller account behind it yet. " +
-          "To test real messaging locally, go to /messages/new and message another " +
-          "signed-up test account directly."
-      );
+      console.error("[message-seller] get_or_create_conversation failed:", rpcError);
+
+      // A foreign-key violation specifically means the seller_id has no real
+      // profile row behind it — i.e. a sample/demo listing. Only THAT case
+      // gets the sample-data message. Every other error is a real problem
+      // and gets surfaced honestly instead of being mislabeled.
+      const isMissingProfile =
+        rpcError.code === "23503" || // FK violation
+        /foreign key|violates foreign key|not present in table/i.test(rpcError.message ?? "");
+
+      if (isMissingProfile) {
+        setError(
+          "This is a sample listing with no real seller account behind it yet. " +
+            "Real listings you or other members post support live messaging."
+        );
+      } else if (rpcError.code === "23514" || /distinct_participants/i.test(rpcError.message ?? "")) {
+        setError("This is your own listing — you can't message yourself.");
+      } else {
+        setError(
+          rpcError.message
+            ? `We couldn't open the conversation: ${rpcError.message}`
+            : "We couldn't open the conversation. Please try again."
+        );
+      }
+      return;
+    }
+
+    if (!conversationId) {
+      setError("We couldn't open the conversation. Please try again.");
       return;
     }
 

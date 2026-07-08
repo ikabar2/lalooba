@@ -16,6 +16,32 @@ body {
   font-feature-settings: "liga" 1, "kern" 1;
 }
 
+/* Horizontal-overflow containment (fixes Samsung/mobile right-side scroll).
+   This is NOT the `overflow-x: hidden` band-aid: `clip` doesn't create a
+   scroll container or a new scroll port, so it can't be scrolled to reveal
+   hidden content, and — unlike `hidden` — it does NOT break `position:
+   sticky` on descendants (our desktop header relies on sticky). Combined
+   with the max-width guards below, it stops any stray transformed/absolute
+   element (e.g. the rotated "SOLD" ribbon, or RTL-flipped decorations) from
+   widening the page beyond the viewport, while leaving legitimate inner
+   horizontal scrollers (the image-gallery thumbnails, which set their own
+   overflow-x-auto) working normally. */
+html,
+body {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+/* Media never forces the page wider than its container — a large image or
+   iframe with intrinsic width is a classic mobile-overflow source. */
+img,
+svg,
+video,
+canvas,
+iframe {
+  max-width: 100%;
+}
+
 ::selection {
   background: #FF4500;
   color: #FFFFFF;
