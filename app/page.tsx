@@ -1,0 +1,38 @@
+import { cookies } from "next/headers";
+import Header from "@/components/Header";
+import PromoBanner from "@/components/PromoBanner";
+import FeaturedListings from "@/components/FeaturedListings";
+import CategoryIconBar from "@/components/CategoryIconBar";
+import ModuleCards from "@/components/ModuleCards";
+import LockedBanner from "@/components/LockedBanner";
+import ListingGrid from "@/components/ListingGrid";
+import JeebLiSection from "@/components/JeebLiSection";
+import Footer from "@/components/Footer";
+import { getActiveMemberCount } from "@/lib/stats";
+
+export default async function HomePage() {
+  // Read once here (Server Component) and pass down — avoids each client
+  // component needing its own cookie-parsing logic.
+  const detectedCity = (await cookies()).get("lalooba-city")?.value ?? null;
+  const { count: activeMembers, isLive } = await getActiveMemberCount();
+
+  return (
+    <>
+      <Header detectedCity={detectedCity} />
+      <PromoBanner activeMembers={activeMembers} activeMembersIsLive={isLive} />
+      {/* Orientation before content: a first-time visitor needs "what can I
+          browse here" before "here's what's hot" — categories are
+          navigation, Featured is content, and navigation earns the first
+          slot the same way the header nav/search does. */}
+      <CategoryIconBar />
+      <FeaturedListings />
+      {/* Listings sit immediately below search — no large hero pushing them
+          below the fold, matching the "posts visible first" reference. */}
+      <ListingGrid />
+      <JeebLiSection />
+      <ModuleCards />
+      <LockedBanner />
+      <Footer />
+    </>
+  );
+}

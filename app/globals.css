@@ -1,0 +1,104 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-arabic: "Tajawal", system-ui, sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: #FFFFFF;
+  color: #0B1220;
+  font-feature-settings: "liga" 1, "kern" 1;
+}
+
+::selection {
+  background: #FF4500;
+  color: #FFFFFF;
+}
+
+a, button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Consistent, visible keyboard-focus ring across the whole site. Browser
+   default focus outlines are inconsistent across elements/browsers, and
+   adding a `focus-visible:` utility class to every single interactive
+   element individually (there are dozens across this codebase) would be
+   easy to miss on new ones. One rule here covers all of them, including
+   future additions, and — crucially — only shows for keyboard/assistive-tech
+   navigation, not mouse clicks, so it never looks like a stray box on a
+   tap or click. */
+:focus-visible {
+  outline: 2px solid #FF4500;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Skip-to-content link — invisible until keyboard-focused, then jumps
+   straight past the header/nav. Without this, a keyboard or screen-reader
+   user has to tab through the entire header (logo, search, language
+   toggle, nav links) on every single page before reaching the actual
+   content — this is the standard, expected escape hatch. */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 200;
+  background: #0B1220;
+  color: #FFFFFF;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0 0 0.5rem 0;
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+
+.skip-link:focus {
+  left: 0;
+}
+
+.arabic {
+  font-family: var(--font-arabic);
+  font-weight: 700;
+  direction: rtl;
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.reveal {
+  opacity: 0;
+}
+
+.reveal.is-visible {
+  animation: fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* FAILSAFE (issue #3): if the IntersectionObserver that adds .is-visible
+   never fires — which can happen in some Android WebViews, and is more
+   likely under dir="rtl" where intersection math against the root bounds
+   behaves differently — every .reveal element would stay stuck at
+   opacity:0 and the whole page reads as a blank white screen (no crash, so
+   no error boundary catches it). This animation force-reveals any reveal
+   element that hasn't been marked visible within 1.2s of load, so content
+   ALWAYS appears even if the observer silently no-ops. The observer path
+   still handles the nice staggered entrance in the normal case; this only
+   backstops the failure case. */
+@keyframes reveal-failsafe {
+  to { opacity: 1; transform: none; }
+}
+.reveal:not(.is-visible) {
+  animation: reveal-failsafe 0.01s linear 1.2s forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .reveal { opacity: 1; animation: none; }
+  .reveal:not(.is-visible) { animation: none; opacity: 1; }
+}

@@ -1,0 +1,11 @@
+# Supabase CLI project config — governs `supabase start` / `supabase db reset`
+# for LOCAL development only. This file does NOT affect a hosted/production
+# Supabase project; see the "Branded signup email" section in README.md for
+# how to apply the same template there (Dashboard, since there's no CLI
+# deploy step for email templates yet).
+
+project_id = "lalooba"
+
+[auth.email.template.confirmation]
+subject = "Confirm your Lalooba account"
+content_path = "./supabase/templates/confirmation.html"
