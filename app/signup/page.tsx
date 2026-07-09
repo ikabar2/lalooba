@@ -58,7 +58,26 @@ export default function SignUpPage() {
       });
 
       if (signUpError) {
-        setError(signUpError.message);
+        // Some users (certain ISPs/regions) can't reach Supabase's auth
+        // endpoint at the network layer — the request fails before it's
+        // really processed, and Supabase surfaces a misleading
+        // "not available in your country" style message. Detect that class
+        // of failure and show something accurate + actionable instead of
+        // implying we've geo-blocked them (we haven't).
+        const msg = signUpError.message ?? "";
+        const looksLikeNetworkOrRegionBlock =
+          /country|region|not available|failed to fetch|network|load failed|timeout|unreachable/i.test(msg);
+
+        if (looksLikeNetworkOrRegionBlock) {
+          setError(
+            "We're having trouble reaching the sign-up service from your network right now. " +
+              "This is a temporary connection issue, not a restriction on your account. " +
+              "Please try again in a moment, or try a different network (for example, switching " +
+              "off a VPN, or from mobile data to Wi-Fi)."
+          );
+        } else {
+          setError(msg || "We couldn't create your account. Please try again.");
+        }
         setLoading(false);
         return;
       }

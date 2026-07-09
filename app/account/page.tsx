@@ -10,6 +10,7 @@ import { getDisplayName } from "@/lib/user-display";
 import { friendlyErrorMessage } from "@/lib/error-messages";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import ConfirmModal from "@/components/ConfirmModal";
 
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024; // matches the avatars bucket's file_size_limit (001_avatars_bucket.sql)
 const ALLOWED_AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -50,6 +51,9 @@ export default function AccountPage() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     let supabase;
@@ -249,6 +253,33 @@ export default function AccountPage() {
     }
   }
 
+  async function handleDeleteAccount() {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const supabase = createClient();
+      // Permanently deletes the auth user; cascades remove profile, listings,
+      // and messages (migration 010). Only ever deletes the caller.
+      const { error: delError } = await supabase.rpc("delete_own_account");
+      if (delError) {
+        console.error("[account] delete failed:", delError);
+        setDeleteError(
+          friendlyErrorMessage(delError, "We couldn't delete your account. Please try again.")
+        );
+        setDeleting(false);
+        return;
+      }
+      // The session now points at a deleted user — sign out to clear tokens,
+      // then hard-redirect home so no stale authed state remains.
+      await supabase.auth.signOut({ scope: "global" }).catch(() => {});
+      window.location.href = "/";
+    } catch (err) {
+      console.error("[account] delete threw:", err);
+      setDeleteError(friendlyErrorMessage(err, "We couldn't delete your account. Please try again."));
+      setDeleting(false);
+    }
+  }
+
   const resolvedDisplayName = getDisplayName({ display_name: profile?.display_name, full_name: profile?.full_name, email });
 
   return (
@@ -404,6 +435,35 @@ export default function AccountPage() {
                 </p>
               </div>
             </div>
+
+            {/* Danger zone — permanent account deletion */}
+            <div className="mt-6 rounded-xl border border-red-100 bg-red-50/40 p-6">
+              <h2 className="mb-1 text-sm font-bold text-red-700">Delete account</h2>
+              <p className="mb-4 text-xs leading-relaxed text-navy-600">
+                Permanently deletes your account and everything tied to it — your
+                profile, listings, and messages. This can&apos;t be undone.
+              </p>
+              {deleteError && (
+                <p className="mb-3 rounded-md bg-red-100 px-3 py-2 text-sm text-red-800">{deleteError}</p>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(true)}
+                className="rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-bold text-red-700 transition hover:bg-red-50"
+              >
+                Delete my account
+              </button>
+            </div>
+
+            <ConfirmModal
+              open={showDeleteConfirm}
+              title="Delete your account?"
+              message="This permanently deletes your account, profile, listings, and messages. This cannot be undone."
+              confirmLabel="Delete forever"
+              loading={deleting}
+              onConfirm={handleDeleteAccount}
+              onCancel={() => setShowDeleteConfirm(false)}
+            />
           </>
         )}
       </main>

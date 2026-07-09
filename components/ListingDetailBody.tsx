@@ -10,6 +10,7 @@ import { currencyForCountry, formatSDG } from "@/lib/currency";
 import { getFeaturedIdSet } from "@/lib/featured";
 import { createClient } from "@/lib/supabase/client";
 import MessageSellerButton from "./MessageSellerButton";
+import DeleteListingButton from "./DeleteListingButton";
 import ImageGallery from "./ImageGallery";
 import Breadcrumbs from "./Breadcrumbs";
 
@@ -139,8 +140,11 @@ export default function ListingDetailBody({ listing }: { listing: Listing }) {
           </div>
 
           {isOwnListing ? (
-            <div className="rounded-lg border border-navy-100 bg-navy-50/50 px-4 py-3 text-sm text-navy-600">
-              {t("own_listing_note")}
+            <div className="space-y-3">
+              <div className="rounded-lg border border-navy-100 bg-navy-50/50 px-4 py-3 text-sm text-navy-600">
+                {t("own_listing_note")}
+              </div>
+              {isRealListing && <DeleteListingButton listingId={listing.id} />}
             </div>
           ) : (
             <MessageSellerButton

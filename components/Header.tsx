@@ -83,6 +83,7 @@ export default function Header({ detectedCity }: { detectedCity: string | null }
   const [account, setAccount] = useState<{ email: string | null; fullName: string | null } | null>(
     null
   );
+  const [unreadCount, setUnreadCount] = useState(0);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<TranslationKey>(categoryKeys[0]);
   const { lang, toggleLang, t } = useLanguage();
@@ -103,6 +104,14 @@ export default function Header({ detectedCity }: { detectedCity: string | null }
           email,
           fullName: profile?.display_name ?? profile?.full_name ?? null,
         });
+        // Unread message count for the notification badge. Best-effort — a
+        // failure here just means no badge, never a broken header.
+        try {
+          const { data: unread } = await supabase.rpc("unread_message_count");
+          setUnreadCount(typeof unread === "number" ? unread : 0);
+        } catch {
+          setUnreadCount(0);
+        }
       } catch {
         // profiles fetch failing (RLS hiccup, table not migrated yet, brief
         // network blip) shouldn't block showing *something* — fall back to
@@ -117,13 +126,19 @@ export default function Header({ detectedCity }: { detectedCity: string | null }
         .getUser()
         .then(({ data }) => {
           if (data.user) loadAccount(data.user.id, data.user.email ?? null);
-          else setAccount(null);
+          else {
+            setAccount(null);
+            setUnreadCount(0);
+          }
         })
         .catch(() => setAccount(null)); // network hiccup on initial check — treat as logged out, not a crash
 
       const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
         if (session?.user) loadAccount(session.user.id, session.user.email ?? null);
-        else setAccount(null);
+        else {
+          setAccount(null);
+          setUnreadCount(0);
+        }
       });
       unsubscribe = () => listener.subscription.unsubscribe();
     } catch (err) {
@@ -133,12 +148,24 @@ export default function Header({ detectedCity }: { detectedCity: string | null }
   }, []);
 
   async function handleLogout() {
+    // Clear local user state immediately so the UI reflects logout even if
+    // the network call is slow.
+    setAccount(null);
+    setUnreadCount(0);
     try {
       const supabase = createClient();
-      await supabase.auth.signOut();
-      window.location.href = "/";
+      // scope: "global" invalidates the session everywhere (all this user's
+      // devices/tabs), not just this browser — the safest default for a
+      // "sign out" action. Clears the auth tokens from storage too.
+      await supabase.auth.signOut({ scope: "global" });
     } catch (err) {
-      console.warn("[Header] Logout skipped, Supabase not configured:", err);
+      console.warn("[Header] Logout error (redirecting home anyway):", err);
+    } finally {
+      // Always land on the homepage, logged out — even if signOut threw, we
+      // don't want to strand the user on an authed page in a half-state. A
+      // full navigation (not router.push) guarantees all cached React state
+      // and any in-memory Supabase session are dropped.
+      window.location.href = "/";
     }
   }
 
@@ -212,6 +239,18 @@ export default function Header({ detectedCity }: { detectedCity: string | null }
           <div className="hidden items-center gap-2 sm:flex">
             {account ? (
               <>
+                <Link
+                  href="/messages"
+                  aria-label={unreadCount > 0 ? `Messages, ${unreadCount} unread` : "Messages"}
+                  className="relative rounded-md border border-navy-100 px-3 py-1.5 text-xs font-semibold text-navy-900 transition hover:bg-navy-50"
+                >
+                  Messages
+                  {unreadCount > 0 && (
+                    <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold text-white">
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                  )}
+                </Link>
                 <Link href="/account" className="text-xs font-semibold text-navy-700 hover:underline">
                   {displayName}
                 </Link>

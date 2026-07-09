@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLanguage } from "@/lib/language-context";
+import { createClient } from "@/lib/supabase/client";
 import type { TranslationKey } from "@/lib/translations";
 
 // Persistent mobile bottom navigation — the standard native-app pattern for
@@ -85,6 +87,30 @@ const items: NavItem[] = [
 export default function MobileBottomNav() {
   const pathname = usePathname();
   const { t } = useLanguage();
+  const [unread, setUnread] = useState(0);
+
+  // Fetch the unread message count for the Messages tab badge. Re-runs on
+  // navigation so opening a thread (which marks it read) updates the badge.
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const supabase = createClient();
+        const { data } = await supabase.auth.getUser();
+        if (!data.user) {
+          if (active) setUnread(0);
+          return;
+        }
+        const { data: count } = await supabase.rpc("unread_message_count");
+        if (active) setUnread(typeof count === "number" ? count : 0);
+      } catch {
+        if (active) setUnread(0);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [pathname]);
 
   return (
     <nav
@@ -97,16 +123,24 @@ export default function MobileBottomNav() {
       <ul className="mx-auto flex max-w-md items-stretch justify-around">
         {items.map((item) => {
           const active = item.match(pathname);
+          const showBadge = item.href === "/messages" && unread > 0;
           return (
             <li key={item.href} className="flex-1">
               <Link
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={`flex flex-col items-center gap-0.5 py-2 text-[10px] font-semibold transition-colors ${
+                className={`relative flex flex-col items-center gap-0.5 py-2 text-[10px] font-semibold transition-colors ${
                   active ? "text-gold-400" : "text-navy-500 hover:text-navy-800"
                 }`}
               >
-                <span aria-hidden>{item.icon}</span>
+                <span aria-hidden className="relative">
+                  {item.icon}
+                  {showBadge && (
+                    <span className="absolute -right-2 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-orange-500 px-1 text-[9px] font-bold text-white">
+                      {unread > 99 ? "99+" : unread}
+                    </span>
+                  )}
+                </span>
                 {t(item.labelKey)}
               </Link>
             </li>
