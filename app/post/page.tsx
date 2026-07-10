@@ -24,12 +24,11 @@ export default function PostListingPage() {
 
   const [title, setTitle] = useState("");
   const [price, setPrice] = useState("");
+  const [contactForPrice, setContactForPrice] = useState(false);
   const [city, setCity] = useState("");
   const [country, setCountry] = useState("CA");
   const [category, setCategory] = useState("cat_other");
   const [description, setDescription] = useState("");
-  // Bank-transfer only: seller's SDG amount for the posted local price.
-  const [sdgAmount, setSdgAmount] = useState("");
   // Homemade Cook only: how many portions, and pickup/delivery.
   const [quantity, setQuantity] = useState("");
   const [fulfillment, setFulfillment] = useState("pickup");
@@ -170,7 +169,10 @@ export default function PostListingPage() {
     // just the English fields, and the UI falls back to _en when _ar is null.
     const { error: insertError } = await supabase.from("listings").insert({
       title_en: title,
-      price: Number(price),
+      // When "Contact for price" is chosen, store no price (null) and set the
+      // flag; otherwise store the entered numeric price.
+      price: contactForPrice ? null : Number(price),
+      contact_for_price: contactForPrice,
       currency: country === "US" ? "USD" : "CAD",
       city_en: city,
       country,
@@ -180,7 +182,6 @@ export default function PostListingPage() {
       seller_id: userData.user.id,
       // Category-specific fields — only sent when relevant, else null so
       // they don't apply to listings that don't use them.
-      sdg_amount: category === "cat_bank" && sdgAmount ? Number(sdgAmount) : null,
       quantity: category === "cat_homemade" && quantity ? Number(quantity) : null,
       fulfillment: category === "cat_homemade" ? fulfillment : null,
     });
@@ -282,16 +283,29 @@ export default function PostListingPage() {
             className="mb-4 w-full rounded-md border border-navy-100 px-3 py-2 text-sm outline-none focus:border-navy-400"
           />
 
-          <label className="mb-1 block text-xs font-semibold text-navy-700">Price (CAD)</label>
+          <label className="mb-1 block text-xs font-semibold text-navy-700">
+            Price ({country === "US" ? "USD" : "CAD"})
+          </label>
           <input
-            required
+            required={!contactForPrice}
+            disabled={contactForPrice}
             type="number"
             min="0"
             step="0.01"
-            value={price}
+            value={contactForPrice ? "" : price}
             onChange={(e) => setPrice(e.target.value)}
-            className="mb-4 w-full rounded-md border border-navy-100 px-3 py-2 text-sm outline-none focus:border-navy-400"
+            placeholder={contactForPrice ? "Buyers will contact you for the price" : undefined}
+            className="mb-2 w-full rounded-md border border-navy-100 px-3 py-2 text-sm outline-none focus:border-navy-400 disabled:bg-navy-50 disabled:text-navy-400"
           />
+          <label className="mb-4 flex cursor-pointer items-center gap-2 text-sm text-navy-700">
+            <input
+              type="checkbox"
+              checked={contactForPrice}
+              onChange={(e) => setContactForPrice(e.target.checked)}
+              className="h-4 w-4 rounded border-navy-300 text-orange-500 focus:ring-orange-400"
+            />
+            Contact for price (don&apos;t show a fixed price)
+          </label>
 
           <div className="mb-4 flex gap-3">
             <div className="flex-1">
@@ -330,28 +344,8 @@ export default function PostListingPage() {
             <option value="cat_cars">🚗 Cars</option>
             <option value="cat_barbershop">📚 Books, Arts &amp; Gifts</option>
             <option value="cat_tax">🧘 Health &amp; Wellness</option>
-            <option value="cat_bank">🏦 Bank Transfers</option>
             <option value="cat_other">➕ Other</option>
           </select>
-
-          {category === "cat_bank" && (
-            <>
-              <label className="mb-1 block text-xs font-semibold text-navy-700">
-                SDG amount you give (for the price above)
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={sdgAmount}
-                onChange={(e) => setSdgAmount(e.target.value)}
-                placeholder="e.g. 155000"
-                className="mb-1 w-full rounded-md border border-navy-100 px-3 py-2 text-sm outline-none focus:border-navy-400"
-              />
-              <p className="mb-4 text-xs text-navy-500">
-                Your own rate — buyers see “{country === "US" ? "USD" : "CAD"} {price || "100"} → SDG {sdgAmount || "…"}”.
-              </p>
-            </>
-          )}
 
           {category === "cat_homemade" && (
             <>

@@ -17,7 +17,7 @@ export default async function DisputesPage() {
 
         <p className="mb-5 text-sm leading-relaxed text-navy-600">
           Most transactions on Lalooba go smoothly, but if something goes
-          wrong — an item not as described, a payment issue, or a Jeeb Li
+          wrong — an item not as described, a payment issue, or a Delivery Service
           delivery that didn&apos;t go as agreed — here&apos;s how to get help.
         </p>
 

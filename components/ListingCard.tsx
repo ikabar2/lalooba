@@ -6,7 +6,6 @@ import { useLanguage } from "@/lib/language-context";
 import type { TranslationKey } from "@/lib/translations";
 import { countryNames } from "@/lib/country-names";
 import { bi } from "@/lib/bilingual";
-import { formatSDG } from "@/lib/currency";
 import { categoryIcons } from "./Header";
 
 export type Listing = {
@@ -17,9 +16,9 @@ export type Listing = {
   country: "CA" | "US";
   images: string[]; // first image is the cover/display photo
   category: TranslationKey; // one of the cat_* keys from translations.ts
-  // For bank-transfer (cat_bank) listings: the SDG amount the seller gives
-  // for the posted local price. Seller-entered, not auto-converted.
-  sdgAmount?: number | null;
+  // When true the listing has no fixed price — buyers contact the seller.
+  // In that case `price` is not meaningful (stored as 0 / ignored in UI).
+  contactForPrice?: boolean;
   // For Homemade Cook (cat_homemade) listings: portions available and how
   // the buyer receives it. Null for other categories.
   quantity?: number | null;
@@ -146,12 +145,15 @@ export default function ListingCard({
           allowed two lines instead of a hard truncate since price no
           longer needs to share a line with it. */}
       <div className="p-3">
-        <p className="mb-0.5 flex items-baseline gap-1">
-          <span className="text-lg font-extrabold tabular-nums text-navy-900">${listing.price}</span>
-          <span className="text-[11px] font-bold text-navy-500">{currencyCode[listing.country]}</span>
-        </p>
-        {listing.category === "cat_bank" && listing.sdgAmount != null && (
-          <p className="mb-1 text-[11px] font-semibold text-gold-500">→ SDG {formatSDG(listing.sdgAmount)}</p>
+        {listing.contactForPrice ? (
+          <p className="mb-0.5">
+            <span className="text-sm font-bold text-orange-600">{t("contact_for_price")}</span>
+          </p>
+        ) : (
+          <p className="mb-0.5 flex items-baseline gap-1">
+            <span className="text-lg font-extrabold tabular-nums text-navy-900">${listing.price}</span>
+            <span className="text-[11px] font-bold text-navy-500">{currencyCode[listing.country]}</span>
+          </p>
         )}
         <p className="mb-1.5 line-clamp-2 text-sm font-medium leading-snug text-navy-800">
           {listing.title[lang]}

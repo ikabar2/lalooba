@@ -25,7 +25,7 @@ export default async function PrivacyPage() {
           </li>
           <li>
             <strong className="text-navy-900">Listings &amp; photos</strong>{" "}
-            — anything you post to the marketplace or Jeeb Li, including
+            — anything you post to the marketplace or Delivery Service, including
             uploaded photos.
           </li>
           <li>

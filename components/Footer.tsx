@@ -12,9 +12,7 @@ export default function Footer() {
       title: "Platform",
       links: [
         { label: "Marketplace", href: "/marketplace" },
-        { label: "Jobs", href: "#jobs" },
-        { label: "Interpreters", href: "#interpreters" },
-        { label: "Jeeb Li", href: "/jeebli" },
+        { label: "Delivery Service", href: "/jeebli" },
       ],
     },
     {
@@ -22,7 +20,6 @@ export default function Footer() {
       links: [
         { label: "About", href: "/about" },
         { label: "How it works", href: "/how-it-works" },
-        { label: "Institutions", href: "#institutions" },
         { label: "Contact", href: "/contact" },
       ],
     },
@@ -46,9 +43,9 @@ export default function Footer() {
               <Logo size="sm" />
             </div>
             <p className="mb-4 max-w-xs text-sm leading-relaxed text-navy-200">
-              A free community marketplace, jobs board, interpreter network, and
-              travel logistics platform — built for diaspora communities across
-              Canada and the United States.
+              A free community marketplace and travel logistics platform —
+              built for diaspora communities across Canada and the United
+              States.
             </p>
 
             <div className="flex items-center gap-2.5">
@@ -130,7 +127,7 @@ export default function Footer() {
                 <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
                 <polyline points="22 4 12 14.01 9 11.01" />
               </svg>
-              Verified sellers &amp; interpreters
+              Verified sellers
             </span>
           </div>
         </div>

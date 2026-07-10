@@ -20,7 +20,6 @@ const categoryKeys: TranslationKey[] = [
   "cat_cars",
   "cat_barbershop",
   "cat_tax",
-  "cat_bank",
   "cat_other",
 ];
 

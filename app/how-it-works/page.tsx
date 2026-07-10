@@ -5,7 +5,7 @@ import Footer from "@/components/Footer";
 const steps = [
   {
     title: "Browse for free",
-    desc: "Search the marketplace, jobs, and interpreter directory without creating an account — no signup required to look around.",
+    desc: "Search the marketplace without creating an account — no signup required to look around.",
   },
   {
     title: "Create a free account",
@@ -13,7 +13,7 @@ const steps = [
   },
   {
     title: "Message directly",
-    desc: "Talk to sellers, interpreters, or travelers through Lalooba's built-in messaging — no need to share personal contact details until you're ready.",
+    desc: "Talk to sellers or travelers through Lalooba's built-in messaging — no need to share personal contact details until you're ready.",
   },
   {
     title: "Build trust over time",
@@ -50,7 +50,7 @@ export default async function HowItWorksPage() {
           ))}
         </div>
 
-        <h2 className="mb-2 mt-9 text-base font-bold text-navy-900">Using Jeeb Li</h2>
+        <h2 className="mb-2 mt-9 text-base font-bold text-navy-900">Using the Delivery Service</h2>
         <p className="mb-5 text-sm leading-relaxed text-navy-600">
           Travelers post a trip with their route, date, and available baggage
           weight. Senders browse trips and request space for an item they

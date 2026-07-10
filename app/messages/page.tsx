@@ -89,6 +89,16 @@ export default async function MessagesPage() {
     }
   }
 
+  // Prioritize unread conversations at the top. Within each group (unread /
+  // read) keep the existing newest-activity-first order. A stable sort on the
+  // already-recency-ordered list gives exactly that: all unread threads
+  // first (newest unread at top), then all read threads (newest first).
+  const sortedConversations = [...conversations].sort((a, b) => {
+    const aUnread = (unreadByConv.get(a.id) ?? 0) > 0 ? 1 : 0;
+    const bUnread = (unreadByConv.get(b.id) ?? 0) > 0 ? 1 : 0;
+    return bUnread - aUnread; // unread (1) before read (0)
+  });
+
   return (
     <>
       <Header detectedCity={detectedCity} />
@@ -102,7 +112,7 @@ export default async function MessagesPage() {
           </div>
         ) : (
           <div className="flex flex-col gap-2">
-            {conversations.map((conv) => {
+            {sortedConversations.map((conv) => {
               const otherRaw = conv.participant_one === userId ? conv.p2 : conv.p1;
               const other = one(otherRaw);
               const name = getDisplayName(

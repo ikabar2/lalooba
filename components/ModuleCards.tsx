@@ -8,14 +8,12 @@ export default function ModuleCards() {
 
   const modules = [
     { name: t("nav_marketplace"), desc: t("module_marketplace_desc"), icon: "🛍", href: "#marketplace" },
-    { name: t("nav_jobs"), desc: t("module_jobs_desc"), icon: "💼", href: "#jobs" },
-    { name: t("nav_interpreters"), desc: t("module_interpreters_desc"), icon: "🌐", href: "#interpreters" },
     { name: t("nav_jeebli"), desc: t("module_jeebli_desc"), icon: "✈️", href: "#jeebli" },
   ];
 
   return (
     <section className="mx-auto max-w-6xl px-5 pb-12">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3">
         {modules.map((m, i) => (
           <ScrollReveal key={m.href} delay={i * 80}>
             <a

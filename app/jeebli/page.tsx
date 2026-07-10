@@ -40,10 +40,10 @@ export default async function JeebLiBrowsePage() {
           <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="mb-1 text-xs font-extrabold tracking-wide text-gold-400">
-                ✈️ JEEB LI · TRAVEL DELIVERY SERVICE
+                ✈️ DELIVERY SERVICE · CARRIED BY TRAVELERS
               </p>
               <h1 className="font-display text-2xl font-medium text-navy-900">
-                Jeeb Li — all trips
+                Delivery Service — all trips
               </h1>
               <p className="max-w-xl text-sm text-navy-600">
                 Travelers offering unused baggage space. Tap a trip to request space as a sender.

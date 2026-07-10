@@ -16,24 +16,38 @@ body {
   font-feature-settings: "liga" 1, "kern" 1;
 }
 
-/* Horizontal-overflow containment (fixes Samsung/mobile right-side scroll).
-   This is NOT the `overflow-x: hidden` band-aid: `clip` doesn't create a
-   scroll container or a new scroll port, so it can't be scrolled to reveal
-   hidden content, and — unlike `hidden` — it does NOT break `position:
-   sticky` on descendants (our desktop header relies on sticky). Combined
-   with the max-width guards below, it stops any stray transformed/absolute
-   element (e.g. the rotated "SOLD" ribbon, or RTL-flipped decorations) from
-   widening the page beyond the viewport, while leaving legitimate inner
-   horizontal scrollers (the image-gallery thumbnails, which set their own
-   overflow-x-auto) working normally. */
+/* Width containment that behaves identically in LTR and RTL.
+
+   ROOT CAUSE of the Arabic "loads shifted far right, must scroll" bug:
+   the previous rule set `overflow-x: clip` on html/body. In RTL, a clip
+   (or hidden) container places its scroll origin at the inline-start —
+   which is the RIGHT edge — so the viewport rendered offset to the right on
+   first paint even when nothing genuinely overflowed. LTR anchors at the
+   left, which is why English looked fine and only Arabic broke.
+
+   The fix is to contain width WITHOUT establishing an overflow/scroll
+   context: `width: 100%` + `overflow-x: hidden` on a wrapping element is
+   still origin-sensitive, so instead we (a) guarantee the root can't exceed
+   the viewport and (b) make every box include padding/border in its width
+   via border-box, so no element computes wider than its container and there
+   is no overflow to anchor in the first place. No clip, no hidden, no
+   direction-dependent scroll origin. */
+* {
+  box-sizing: border-box;
+}
+
 html,
 body {
+  width: 100%;
   max-width: 100%;
-  overflow-x: clip;
+  margin: 0;
+  padding: 0;
 }
 
 /* Media never forces the page wider than its container — a large image or
-   iframe with intrinsic width is a classic mobile-overflow source. */
+   iframe with intrinsic width is a classic mobile-overflow source. Scoped to
+   not touch height so Next.js <Image fill> (absolute, 100% height) is
+   unaffected. */
 img,
 svg,
 video,

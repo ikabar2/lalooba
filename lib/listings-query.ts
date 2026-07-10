@@ -32,13 +32,13 @@ type ListingRow = {
   seller_id: string;
   title_en: string;
   title_ar: string | null;
-  price: number;
+  price: number | null;
+  contact_for_price: boolean | null;
   currency: string;
   city_en: string;
   city_ar: string | null;
   country: string;
   category: string | null;
-  sdg_amount: number | null;
   quantity: number | null;
   fulfillment: string | null;
   images: string[] | null;
@@ -66,12 +66,12 @@ function rowToListing(row: ListingRow): Listing {
   return {
     id: row.id,
     title: { en: row.title_en, ar: row.title_ar || row.title_en },
-    price: row.price,
+    price: row.price ?? 0,
     city: { en: row.city_en, ar: row.city_ar || row.city_en },
     country: row.country === "US" ? "US" : "CA",
     images: row.images && row.images.length > 0 ? row.images : [],
     category: (row.category as TranslationKey) ?? "cat_other",
-    sdgAmount: row.sdg_amount,
+    contactForPrice: !!row.contact_for_price,
     quantity: row.quantity,
     fulfillment: (row.fulfillment as Listing["fulfillment"]) ?? null,
     sellerId: row.seller_id ?? "",
@@ -97,7 +97,7 @@ export async function fetchListingsBySeller(sellerId: string): Promise<Listing[]
       .from("listings")
       .select(
         `id, seller_id, title_en, title_ar, price, currency, city_en, city_ar,
-         country, category, sdg_amount, quantity, fulfillment, images, availability, created_at,
+         country, category, contact_for_price, quantity, fulfillment, images, availability, created_at,
          featured_until, featured_priority,
          seller:profiles ( display_name, full_name, id_verified )`
       )
@@ -129,7 +129,7 @@ export async function fetchListingById(id: string): Promise<Listing | null> {
       .from("listings")
       .select(
         `id, seller_id, title_en, title_ar, price, currency, city_en, city_ar,
-         country, category, sdg_amount, quantity, fulfillment, images, availability, created_at,
+         country, category, contact_for_price, quantity, fulfillment, images, availability, created_at,
          featured_until, featured_priority,
          seller:profiles ( display_name, full_name, id_verified )`
       )
@@ -169,7 +169,7 @@ export async function fetchListings(
       .from("listings")
       .select(
         `id, seller_id, title_en, title_ar, price, currency, city_en, city_ar,
-         country, category, sdg_amount, quantity, fulfillment, images, availability, created_at,
+         country, category, contact_for_price, quantity, fulfillment, images, availability, created_at,
          featured_until, featured_priority,
          seller:profiles ( display_name, full_name, id_verified )`,
         { count: "exact" }

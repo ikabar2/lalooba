@@ -6,7 +6,7 @@ import { useLanguage } from "@/lib/language-context";
 import { Listing } from "./ListingCard";
 import { countryNames } from "@/lib/country-names";
 import { bi } from "@/lib/bilingual";
-import { currencyForCountry, formatSDG } from "@/lib/currency";
+import { currencyForCountry } from "@/lib/currency";
 import { getFeaturedIdSet } from "@/lib/featured";
 import { createClient } from "@/lib/supabase/client";
 import MessageSellerButton from "./MessageSellerButton";
@@ -79,12 +79,11 @@ export default function ListingDetailBody({ listing }: { listing: Listing }) {
           <h1 className="mb-1 font-display text-2xl font-medium text-navy-900">
             {listing.title[lang]}
           </h1>
-          <p className="mb-1 text-xl font-bold text-navy-800">
-            {currencyForCountry[listing.country]} {listing.price.toLocaleString("en-US")}
-          </p>
-          {listing.category === "cat_bank" && listing.sdgAmount != null && (
-            <p className="mb-3 text-sm font-semibold text-gold-500">
-              → SDG {formatSDG(listing.sdgAmount)}
+          {listing.contactForPrice ? (
+            <p className="mb-3 text-xl font-bold text-orange-600">{t("contact_for_price")}</p>
+          ) : (
+            <p className="mb-1 text-xl font-bold text-navy-800">
+              {currencyForCountry[listing.country]} {listing.price.toLocaleString("en-US")}
             </p>
           )}
           {listing.category === "cat_homemade" && (

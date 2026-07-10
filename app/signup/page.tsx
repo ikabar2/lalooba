@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { validatePassword } from "@/lib/password";
 import Logo from "@/components/Logo";
 import { useLanguage } from "@/lib/language-context";
 
@@ -40,6 +41,14 @@ export default function SignUpPage() {
       setError(
         "Lalooba is currently only available in the US and Canada, or not yet available in your region."
       );
+      return;
+    }
+
+    // Client-side password strength check (Supabase enforces the same rule
+    // server-side, so this is fast feedback, not the only line of defense).
+    const pwCheck = validatePassword(password);
+    if (!pwCheck.ok) {
+      setError(pwCheck.reason);
       return;
     }
 
@@ -193,8 +202,11 @@ export default function SignUpPage() {
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="mb-6 w-full rounded-md border border-navy-100 px-3 py-2 text-sm outline-none focus:border-navy-400"
+          className="mb-1 w-full rounded-md border border-navy-100 px-3 py-2 text-sm outline-none focus:border-navy-400"
         />
+        <p className="mb-6 text-[11px] text-navy-500">
+          At least 8 characters, including a number or special character.
+        </p>
 
         <button
           type="submit"

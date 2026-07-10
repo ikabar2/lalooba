@@ -6,9 +6,9 @@ import MobileBottomNav from "@/components/MobileBottomNav";
 import RouteAnnouncer from "@/components/RouteAnnouncer";
 
 export const metadata: Metadata = {
-  title: "Lalooba — Marketplace, Jobs, Interpreters & Jeeb Li",
+  title: "Lalooba — Marketplace & Delivery Service",
   description:
-    "Browse listings, jobs, and interpreters in your community. Sign up to message, post, and send items home.",
+    "Browse listings in your community. Sign up to message, post, and send items home.",
 };
 
 // Explicit mobile-first viewport — most of this audience is on a phone

@@ -15,7 +15,7 @@ export default async function ProhibitedItemsPage() {
           Prohibited items
         </h1>
         <p className="mb-6 text-sm leading-relaxed text-navy-600">
-          The following items cannot be listed, sold, or sent through Jeeb Li
+          The following items cannot be listed, sold, or sent through the Delivery Service
           on Lalooba. This list reflects common restrictions across Canada
           and the United States and is provided for guidance — it is not
           legal advice, and additional restrictions may apply depending on
@@ -25,7 +25,7 @@ export default async function ProhibitedItemsPage() {
         <ProhibitedItemsList />
 
         <p className="mt-6 text-xs text-navy-400">
-          Listings or Jeeb Li requests involving prohibited items will be
+          Listings or Delivery Service requests involving prohibited items will be
           removed and may result in account suspension.
         </p>
       </main>

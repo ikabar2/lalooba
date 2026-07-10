@@ -24,7 +24,6 @@ const categoryKeys: TranslationKey[] = [
   "cat_cars",
   "cat_barbershop",
   "cat_tax",
-  "cat_bank",
   "cat_other",
 ];
 
@@ -42,7 +41,6 @@ export const categoryIcons: Record<string, string> = {
   cat_cars: "🚗",
   cat_barbershop: "📚", // Books, Arts & Gifts (formerly Barbershop)
   cat_tax: "🧘", // Health & Wellness (formerly Tax Filing)
-  cat_bank: "🏦", // Bank Transfers / remittances — Sudan-relevant
   cat_other: "➕",
 };
 
@@ -91,6 +89,16 @@ export default function Header({ detectedCity }: { detectedCity: string | null }
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
+    let messageChannel: ReturnType<ReturnType<typeof createClient>["channel"]> | undefined;
+
+    async function refreshUnread(supabase: ReturnType<typeof createClient>) {
+      try {
+        const { data: unread } = await supabase.rpc("unread_message_count");
+        setUnreadCount(typeof unread === "number" ? unread : 0);
+      } catch {
+        setUnreadCount(0);
+      }
+    }
 
     async function loadAccount(userId: string, email: string | null) {
       try {
@@ -104,14 +112,36 @@ export default function Header({ detectedCity }: { detectedCity: string | null }
           email,
           fullName: profile?.display_name ?? profile?.full_name ?? null,
         });
-        // Unread message count for the notification badge. Best-effort — a
-        // failure here just means no badge, never a broken header.
-        try {
-          const { data: unread } = await supabase.rpc("unread_message_count");
-          setUnreadCount(typeof unread === "number" ? unread : 0);
-        } catch {
-          setUnreadCount(0);
-        }
+        // Initial unread count for the notification badge.
+        await refreshUnread(supabase);
+
+        // Real-time: bump the badge the moment a new message arrives in any
+        // of the user's conversations. We subscribe to all message inserts
+        // and re-derive the count via the RPC (which already filters to
+        // messages addressed to this user), so the badge reflects live state
+        // without a page refresh. Clean up any prior channel first.
+        if (messageChannel) supabase.removeChannel(messageChannel);
+        messageChannel = supabase
+          .channel(`header-unread-${userId}`)
+          .on(
+            "postgres_changes",
+            { event: "INSERT", schema: "public", table: "messages" },
+            (payload) => {
+              // Only react to messages the user RECEIVED (not their own sends).
+              const senderId = (payload.new as { sender_id?: string })?.sender_id;
+              if (senderId && senderId !== userId) {
+                refreshUnread(supabase);
+              }
+            }
+          )
+          // Also re-check when read_at is updated (e.g. they read a thread in
+          // another tab) so the badge clears live.
+          .on(
+            "postgres_changes",
+            { event: "UPDATE", schema: "public", table: "messages" },
+            () => refreshUnread(supabase)
+          )
+          .subscribe();
       } catch {
         // profiles fetch failing (RLS hiccup, table not migrated yet, brief
         // network blip) shouldn't block showing *something* — fall back to
@@ -138,9 +168,16 @@ export default function Header({ detectedCity }: { detectedCity: string | null }
         else {
           setAccount(null);
           setUnreadCount(0);
+          if (messageChannel) {
+            supabase.removeChannel(messageChannel);
+            messageChannel = undefined;
+          }
         }
       });
-      unsubscribe = () => listener.subscription.unsubscribe();
+      unsubscribe = () => {
+        listener.subscription.unsubscribe();
+        if (messageChannel) supabase.removeChannel(messageChannel);
+      };
     } catch (err) {
       console.warn("[Header] Supabase auth check skipped:", err);
     }
@@ -193,10 +230,7 @@ export default function Header({ detectedCity }: { detectedCity: string | null }
     // navigation target, just a hash change with nowhere to scroll to on
     // the current page. There's a real /marketplace page now — use it.
     { label: t("nav_marketplace"), href: "/marketplace" },
-    { label: t("nav_jobs"), href: "#jobs" },
-    { label: t("nav_interpreters"), href: "#interpreters" },
     { label: t("nav_jeebli"), href: "/jeebli" },
-    { label: t("nav_institutions"), href: "#institutions" },
   ];
 
   return (
@@ -246,7 +280,7 @@ export default function Header({ detectedCity }: { detectedCity: string | null }
                 >
                   Messages
                   {unreadCount > 0 && (
-                    <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold text-white">
+                    <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-white motion-safe:animate-pulse">
                       {unreadCount > 99 ? "99+" : unreadCount}
                     </span>
                   )}
