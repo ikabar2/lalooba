@@ -141,7 +141,14 @@ export default function AccountPage() {
 
     try {
       const supabase = createClient();
-      const ext = file.name.split(".").pop();
+      // Extension from the allow-listed MIME type, not the user filename
+      // (path-traversal safety — same as the listing upload).
+      const extByMime: Record<string, string> = {
+        "image/jpeg": "jpg",
+        "image/png": "png",
+        "image/webp": "webp",
+      };
+      const ext = extByMime[file.type] ?? "jpg";
       // Fixed filename per user (not a random one) — upsert overwrites the
       // previous avatar in place instead of accumulating old files nobody
       // cleans up. See 001_avatars_bucket.sql for the reasoning.

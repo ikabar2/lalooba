@@ -40,7 +40,16 @@ function LoginForm() {
       // Several flows (Message seller, Post a listing, header Post button)
       // redirect here with ?redirect=/wherever-they-were-going — honor it,
       // falling back to home if it's absent.
-      const redirectTo = searchParams.get("redirect") || "/";
+      //
+      // SECURITY (open redirect): only accept a SAME-SITE relative path. An
+      // attacker could craft ?redirect=https://evil.com or //evil.com to
+      // bounce a just-authenticated user to a phishing site. We require the
+      // value to start with a single "/" and not "//" (protocol-relative),
+      // and to contain no scheme — otherwise we fall back to home.
+      const raw = searchParams.get("redirect") || "/";
+      const isSafe =
+        raw.startsWith("/") && !raw.startsWith("//") && !/^\/\\|:/.test(raw);
+      const redirectTo = isSafe ? raw : "/";
       router.push(redirectTo);
       router.refresh(); // re-runs Server Components so the header reflects the new session
     } catch (err) {

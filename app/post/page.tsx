@@ -150,7 +150,18 @@ export default function PostListingPage() {
       setUploadProgress(`Uploading photo ${i + 1} of ${images.length}…`);
 
       const file = images[i].file;
-      const ext = file.name.split(".").pop();
+      // Derive a safe extension from the MIME type (which we've already
+      // allow-listed), NOT the user-controlled filename. Taking the extension
+      // from file.name risks path traversal / odd characters in the storage
+      // key ("evil/../../x"). The path prefix is the server-verified user id
+      // plus a random id, and now the extension is a fixed known value too.
+      const extByMime: Record<string, string> = {
+        "image/jpeg": "jpg",
+        "image/png": "png",
+        "image/webp": "webp",
+        "image/avif": "avif",
+      };
+      const ext = extByMime[file.type] ?? "jpg";
       const path = `${userData.user.id}/${safeRandomId()}.${ext}`;
 
       const { error: uploadError } = await supabase.storage

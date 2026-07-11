@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import Logo from "./Logo";
 import CountrySelector from "./CountrySelector";
+import LocationChip from "./LocationChip";
 import { useLanguage } from "@/lib/language-context";
 import { createClient } from "@/lib/supabase/client";
 import { getDisplayName } from "@/lib/user-display";
@@ -337,7 +338,9 @@ export default function Header({ detectedCity }: { detectedCity: string | null }
               <path d="M21 21l-4.3-4.3" />
             </svg>
             <input
-              type="text"
+              type="search"
+              name="lalooba-search"
+              autoComplete="off"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t("search_placeholder")}
@@ -383,13 +386,7 @@ export default function Header({ detectedCity }: { detectedCity: string | null }
           {/* Mobile: location pill + Post button share the last row.
               Desktop: same flattening trick. */}
           <div className="flex items-center gap-2 sm:contents">
-            <div className="flex flex-1 items-center gap-1.5 rounded-lg border border-navy-100 bg-white px-3 py-3 text-sm text-navy-700 sm:flex-none sm:py-2">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0">
-                <path d="M12 21s-7-7.5-7-12a7 7 0 1114 0c0 4.5-7 12-7 12z" />
-                <circle cx="12" cy="9" r="2.5" />
-              </svg>
-              <span className="truncate">{detectedCity ?? t("location_fallback")}</span>
-            </div>
+            <LocationChip detectedCity={detectedCity} />
 
             <button
               type="button"

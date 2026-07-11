@@ -19,7 +19,7 @@ export async function getActiveMemberCount(): Promise<{ count: number; isLive: b
     // anon key, same as any other public homepage read.
     const { count, error } = await supabase
       .from("profiles")
-      .select("*", { count: "exact", head: true });
+      .select("id", { count: "exact", head: true });
 
     if (error || count === null) {
       return { count: FALLBACK_ACTIVE_MEMBERS, isLive: false };
