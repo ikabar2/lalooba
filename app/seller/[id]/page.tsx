@@ -10,6 +10,32 @@ import Footer from "@/components/Footer";
 
 export const dynamic = "force-dynamic";
 
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<import("next").Metadata> {
+  const { id } = await params;
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("profiles")
+      .select("display_name, full_name, city_en, country")
+      .eq("id", id)
+      .maybeSingle();
+    if (!data) return { title: "Seller not found" };
+    const name = data.display_name || data.full_name || "Member";
+    const loc = data.city_en ? `${data.city_en}, ${data.country ?? ""}`.trim() : "";
+    return {
+      title: `${name} — Seller Profile`,
+      description: `Listings from ${name}${loc ? ` in ${loc}` : ""} on Lalooba.`,
+      alternates: { canonical: `/seller/${id}` },
+    };
+  } catch {
+    return { title: "Seller Profile" };
+  }
+}
+
 // Adapts a real `profiles` row into the Seller shape SellerProfileBody
 // renders. Bilingual fields get the same value in both languages (a profile
 // stores one city string, not a translated pair); reviews come back empty

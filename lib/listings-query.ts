@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import type { Listing } from "@/components/ListingCard";
 import type { TranslationKey } from "@/lib/translations";
@@ -122,7 +123,7 @@ export async function fetchListingsBySeller(sellerId: string): Promise<Listing[]
 // sample data before deciding it's a genuine 404. This is the read path the
 // listing detail page needs — without it, real posted listings (UUID ids
 // not present in the sample array) 404 on view.
-export async function fetchListingById(id: string): Promise<Listing | null> {
+export const fetchListingById = cache(async function fetchListingById(id: string): Promise<Listing | null> {
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -146,7 +147,7 @@ export async function fetchListingById(id: string): Promise<Listing | null> {
     console.error("[fetchListingById] threw:", err instanceof Error ? err.message : err);
     return null;
   }
-}
+});
 
 //
 // Degrades gracefully: if Supabase isn't configured or the query errors, it

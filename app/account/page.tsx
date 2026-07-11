@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { ensureProfile } from "@/lib/ensure-profile";
 import { getDisplayName } from "@/lib/user-display";
 import { friendlyErrorMessage } from "@/lib/error-messages";
+import { isHeic, convertHeicToJpeg } from "@/lib/heic";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ConfirmModal from "@/components/ConfirmModal";
@@ -107,21 +108,36 @@ export default function AccountPage() {
   }, [router]);
 
   async function handleAvatarSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
+    let file = e.target.files?.[0];
     e.target.value = ""; // allow re-selecting the same file again later
     if (!file || !userId) return;
 
+    setError(null);
+    setUploadingPhoto(true);
+
+    // Samsung/iPhone avatars are HEIC, which browsers can't display. Convert
+    // to JPEG on-device first so it passes the format check and renders.
+    if (isHeic(file)) {
+      try {
+        file = await convertHeicToJpeg(file);
+      } catch (err) {
+        console.error("[account] HEIC avatar conversion failed:", err);
+        setError("We couldn't process that photo. Try saving it as a JPG first.");
+        setUploadingPhoto(false);
+        return;
+      }
+    }
+
     if (!ALLOWED_AVATAR_TYPES.includes(file.type)) {
       setError("Please upload a JPG, PNG, or WEBP image.");
+      setUploadingPhoto(false);
       return;
     }
     if (file.size > MAX_AVATAR_BYTES) {
       setError("That photo is too large. Please use an image under 2 MB.");
+      setUploadingPhoto(false);
       return;
     }
-
-    setError(null);
-    setUploadingPhoto(true);
 
     try {
       const supabase = createClient();
@@ -347,7 +363,7 @@ export default function AccountPage() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/jpeg,image/png,image/webp"
+                  accept="image/jpeg,image/png,image/webp,.heic,.heif,image/heic,image/heif"
                   onChange={handleAvatarSelect}
                   className="hidden"
                 />

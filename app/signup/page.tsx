@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { getSiteUrl } from "@/lib/site-url";
 import { validatePassword } from "@/lib/password";
 import Logo from "@/components/Logo";
 import { useLanguage } from "@/lib/language-context";
@@ -62,7 +63,7 @@ export default function SignUpPage() {
         password,
         options: {
           data: { full_name: fullName, phone: normalizedPhone },
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: `${getSiteUrl()}/auth/callback`,
         },
       });
 

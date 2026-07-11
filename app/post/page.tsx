@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { ensureProfile } from "@/lib/ensure-profile";
 import { friendlyErrorMessage } from "@/lib/error-messages";
 import { safeRandomId } from "@/lib/safe-random-id";
+import { isHeic, convertHeicToJpeg } from "@/lib/heic";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
@@ -37,20 +38,34 @@ export default function PostListingPage() {
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+  const [convertingPhoto, setConvertingPhoto] = useState(false);
+
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
+    e.target.value = ""; // allow re-selecting the same file again later
     if (files.length === 0) return;
 
-    // This is a fast UX check, not the real security boundary — the
-    // `accept="image/*"` attribute on the <input> and this check can both
-    // be bypassed by anyone calling the Storage API directly. The bucket's
-    // own file_size_limit and allowed_mime_types (migration 008) are what
-    // actually enforce this; this just gives a faster, friendlier error
-    // than waiting for the upload to fail server-side.
+    setConvertingPhoto(true);
     const rejected: string[] = [];
     const accepted: File[] = [];
 
-    for (const file of files) {
+    for (const rawFile of files) {
+      let file = rawFile;
+
+      // Samsung/iPhone photos are HEIC, which browsers can't display. Convert
+      // them to JPEG on-device before anything else, so they both pass the
+      // format check below AND render everywhere after upload. A blank
+      // file.type with a .heic name (common on Samsung) is handled too.
+      if (isHeic(file)) {
+        try {
+          file = await convertHeicToJpeg(file);
+        } catch (err) {
+          console.error("[post] HEIC conversion failed:", err);
+          rejected.push(`${rawFile.name} — couldn't convert this photo, try saving it as JPEG`);
+          continue;
+        }
+      }
+
       if (!ALLOWED_MIME_TYPES.includes(file.type)) {
         rejected.push(`${file.name} — not a supported image format`);
         continue;
@@ -77,7 +92,7 @@ export default function PostListingPage() {
     }));
 
     setImages((prev) => [...prev, ...newImages]);
-    e.target.value = ""; // allow re-selecting the same file again later
+    setConvertingPhoto(false);
   }
 
   function removeImage(index: number) {
@@ -268,11 +283,14 @@ export default function PostListingPage() {
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept="image/*,.heic,.heif,image/heic,image/heif"
             multiple
             onChange={handleFileSelect}
             className="hidden"
           />
+          {convertingPhoto && (
+            <p className="mt-2 text-xs text-navy-500">Processing photo…</p>
+          )}
 
           <label className="mb-1 mt-4 block text-xs font-semibold text-navy-700">Title</label>
           <input
