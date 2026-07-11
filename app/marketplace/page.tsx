@@ -64,19 +64,34 @@ export default async function MarketplacePage({
   searchParams: Promise<{ q?: string; category?: string; market?: string }>;
 }) {
   const params = await searchParams;
-  const detectedCity = (await cookies()).get("lalooba-city")?.value ?? null;
+  const cookieStore = await cookies();
+  const detectedCity = cookieStore.get("lalooba-city")?.value ?? null;
   const category = (params.category as TranslationKey | undefined) ?? null;
   const market =
     params.market === "CA" || params.market === "US" ? params.market : null;
 
   // Real listings from the DB — the only source in production. Filtering is
   // done in SQL (indexed) for scale.
-  const { listings: results } = await fetchListings({
+  const { listings: fetched } = await fetchListings({
     category,
     country: market,
     query: params.q ?? null,
     page: 0,
   });
+
+  // "Your country first, the other below": when the user hasn't explicitly
+  // filtered to one market, stable-sort so listings from their detected or
+  // preferred country lead, with the other country's after. The cookie
+  // already reflects the precedence chain (saved preference > GPS > IP).
+  const userCountry = cookieStore.get("lalooba-country")?.value ?? null;
+  const results =
+    !market && (userCountry === "CA" || userCountry === "US")
+      ? [...fetched].sort((a, b) => {
+          const aMatch = a.country === userCountry ? 0 : 1;
+          const bMatch = b.country === userCountry ? 0 : 1;
+          return aMatch - bMatch;
+        })
+      : fetched;
 
   return (
     <>

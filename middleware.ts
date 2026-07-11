@@ -61,22 +61,40 @@ export async function middleware(request: NextRequest) {
   const headerCountry =
     headerCountryRaw && headerCountryRaw.trim() !== "" ? headerCountryRaw.trim().toUpperCase() : null;
 
+  // Durable user preference (set by the header CountrySelector) is the top of
+  // the precedence chain: preference > ?country override > IP header. If a
+  // preference exists we DON'T touch the working country cookie — GPS and the
+  // selector manage it client-side, and IP must never overwrite an explicit
+  // choice on a later request.
+  const prefCountryRaw = request.cookies.get("lalooba-country-pref")?.value;
+  const prefCountry =
+    prefCountryRaw === "CA" || prefCountryRaw === "US" ? prefCountryRaw : null;
+
   // Only CA / US are markets this app serves; anything else is treated as
   // unknown rather than forced into one.
   const resolvedCountry =
-    override === "CA" || override === "US"
+    prefCountry ??
+    (override === "CA" || override === "US"
       ? override
       : headerCountry === "CA" || headerCountry === "US"
         ? headerCountry
-        : null;
+        : null);
 
-  if (resolvedCountry) {
+  if (prefCountry) {
+    // Preference exists — ensure the working cookie matches it and leave it
+    // alone otherwise. (GPS won't run when a preference is set either.)
+    response.cookies.set("lalooba-country", prefCountry, { path: "/" });
+  } else if (resolvedCountry) {
     response.cookies.set("lalooba-country", resolvedCountry, { path: "/" });
   } else {
-    // Explicitly clear any stale country cookie from a previous request so
-    // a US user who was once mis-tagged CA doesn't stay CA. No cookie =
-    // "unknown", which the marketplace treats as "show all markets".
-    response.cookies.delete("lalooba-country");
+    // Don't clobber a GPS-derived cookie that the client set on a prior
+    // request. Only clear when there's genuinely no signal AND the client
+    // hasn't already recorded a geolocation result.
+    const clientGeoTried = request.cookies.get("lalooba-geo-tried")?.value === "1";
+    const existing = request.cookies.get("lalooba-country")?.value;
+    if (!clientGeoTried && !existing) {
+      response.cookies.delete("lalooba-country");
+    }
   }
 
   // City: Vercel's x-vercel-ip-city is IP-derived and COARSE — it resolves
@@ -88,15 +106,25 @@ export async function middleware(request: NextRequest) {
   // filtering, and only set when we actually have a header. The dev
   // override no longer invents a hardcoded city (which was itself a source
   // of wrong-city display in preview/local).
-  const city = request.headers.get("x-vercel-ip-city");
-  if (city && city.trim() !== "") {
-    try {
-      response.cookies.set("lalooba-city", decodeURIComponent(city), { path: "/" });
-    } catch (err) {
-      console.warn("[middleware] Couldn't decode city header:", err);
+  // City precedence mirrors country: once the client has run browser
+  // geolocation (GPS), its reverse-geocoded city is far more accurate than
+  // the IP header (which resolves to the ISP's registered city — the
+  // "Toronto user shown Edmonton" class of bug). So after a GPS attempt,
+  // middleware stops writing the IP city and leaves the client-set value
+  // alone. Before that, the IP city is a soft hint only — used for a
+  // friendly "near {city}" label, never for filtering.
+  const clientGeoRan = request.cookies.get("lalooba-geo-tried")?.value === "1";
+  if (!clientGeoRan) {
+    const city = request.headers.get("x-vercel-ip-city");
+    if (city && city.trim() !== "") {
+      try {
+        response.cookies.set("lalooba-city", decodeURIComponent(city), { path: "/" });
+      } catch (err) {
+        console.warn("[middleware] Couldn't decode city header:", err);
+      }
+    } else if (!request.cookies.get("lalooba-city")?.value) {
+      response.cookies.delete("lalooba-city");
     }
-  } else {
-    response.cookies.delete("lalooba-city");
   }
 
   return response;

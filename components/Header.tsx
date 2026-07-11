@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import Logo from "./Logo";
+import CountrySelector from "./CountrySelector";
 import { useLanguage } from "@/lib/language-context";
 import { createClient } from "@/lib/supabase/client";
 import { getDisplayName } from "@/lib/user-display";
@@ -260,6 +261,7 @@ export default function Header({ detectedCity }: { detectedCity: string | null }
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
+          <CountrySelector />
           <button
             onClick={toggleLang}
             aria-label="Switch language"

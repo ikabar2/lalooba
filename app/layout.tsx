@@ -4,6 +4,7 @@ import { LanguageProvider } from "@/lib/language-context";
 import DisableInspect from "@/components/DisableInspect";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import RouteAnnouncer from "@/components/RouteAnnouncer";
+import GeolocationDetector from "@/components/GeolocationDetector";
 import OrganizationJsonLd from "@/components/seo/OrganizationJsonLd";
 import { getSiteUrl } from "@/lib/site-url";
 
@@ -107,11 +108,10 @@ export default function RootLayout({
         <a href="#main-content" className="skip-link">
           Skip to content
         </a>
-        {/* Temporarily disabled for debugging — re-enable once posting is
-            fixed by removing the leading {false && } guard below. */}
-        {false && <DisableInspect />}
+        <DisableInspect />
         <LanguageProvider>
           <RouteAnnouncer />
+          <GeolocationDetector />
           {/* pb-16 on mobile only reserves space for the fixed bottom nav so
               it never covers the footer or last row of content; removed at
               lg where the bottom nav is hidden. */}

@@ -185,11 +185,25 @@ export async function fetchListings(
       q = q.eq("country", filters.country);
     }
     if (filters.query && filters.query.trim() !== "") {
-      // Search both language title columns. ilike is fine for now; the
-      // schema also has a GIN search_vector index for upgrading to full-text
-      // (websearch_to_tsquery) without a schema change when volume warrants.
-      const term = `%${filters.query.trim()}%`;
-      q = q.or(`title_en.ilike.${term},title_ar.ilike.${term}`);
+      // Search both language title columns.
+      //
+      // SECURITY: the term is interpolated into a PostgREST .or() filter
+      // string, which has its own mini-syntax where `,` separates clauses
+      // and `(` `)` group them. Raw user input containing those characters
+      // could break out of the intended ilike clause and alter the filter
+      // (a filter-injection — not SQL injection, Supabase parameterizes the
+      // SQL itself, but the FILTER logic is attacker-influenced). Strip the
+      // reserved characters; also escape ilike wildcards so a user typing
+      // "%" or "_" searches for those literals instead of matching all rows.
+      const cleaned = filters.query
+        .trim()
+        .replace(/[(),]/g, " ") // PostgREST .or() syntax characters
+        .replace(/[%_]/g, (m) => `\\${m}`) // literal ilike wildcards
+        .slice(0, 100); // bound the term length
+      if (cleaned.trim() !== "") {
+        const term = `%${cleaned}%`;
+        q = q.or(`title_en.ilike.${term},title_ar.ilike.${term}`);
+      }
     }
 
     // Featured first, then newest — same ordering intent as the featured
