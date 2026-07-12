@@ -118,12 +118,29 @@ export default function SignUpPage() {
                   "Please try again shortly, or contact support if this continues."
               );
             } else {
-              // The raw endpoint IS reachable and healthy, so the key/URL/CORS
-              // are all fine — the failure is specific to the signup call
-              // itself (a backend hook, rate limit, or transient error).
+              // The raw endpoint IS reachable and healthy (200), so the key,
+              // URL, and CORS are all confirmed fine. The failure is specific
+              // to the signup call itself — which, unlike a plain settings
+              // read, also triggers Supabase to send a confirmation email.
+              // The two most common real-world causes of exactly this
+              // pattern (settings OK, signup 500) are: (1) SMTP/email sending
+              // failing server-side, or (2) the emailRedirectTo URL not being
+              // in Supabase's Auth redirect allowlist. Critically, Supabase
+              // often creates the auth user FIRST and only fails on the
+              // email step after — so a retry with the same email can then
+              // wrongly say "already registered." Tell the user the truth.
+              console.error(
+                "[signup] settings endpoint healthy (200) but signup itself failed. " +
+                  "This points to the confirmation-email step (SMTP config or the " +
+                  "emailRedirectTo URL not being in Supabase's redirect allowlist), " +
+                  "not a key/network/CORS problem — check Supabase Dashboard → " +
+                  "Authentication → Logs for the exact server-side reason."
+              );
               setError(
-                "Sign-up couldn't complete due to a temporary server issue (not your " +
-                  "connection or account). Please try again in a moment."
+                "We couldn't finish sending your confirmation email, but your account " +
+                  "may already be created. Please check your inbox for a confirmation " +
+                  "link, or try logging in directly. If neither works, please try again " +
+                  "in a few minutes."
               );
             }
           } catch (probeErr) {

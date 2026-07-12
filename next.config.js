@@ -32,6 +32,27 @@ const nextConfig = {
   // Supabase + the geocoder need careful allow-listing; add a CSP via a nonce
   // once those origins are finalized. The headers below are the high-value,
   // low-risk set that won't break functionality.
+  // Canonicalize the domain: redirect www → apex (non-www), permanently.
+  // WHY THIS MATTERS BEYOND SEO: Supabase's redirect_to (used for email
+  // confirmation / password reset links) is validated against an EXACT-MATCH
+  // allowlist. If the site is reachable on both www and non-www (Vercel
+  // serves both by default once a domain is added, unless one is set
+  // canonical), a visitor on whichever variant ISN'T allowlisted gets an
+  // opaque signup/reset failure — exactly the bug this fixes. Redirecting at
+  // the app level is defense-in-depth; also set this domain as primary in
+  // your host's domain settings so the redirect happens even earlier (at the
+  // edge, before hitting the app).
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.lalooba.com" }],
+        destination: "https://lalooba.com/:path*",
+        permanent: true,
+      },
+    ];
+  },
+
   async headers() {
     return [
       {
