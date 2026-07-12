@@ -126,7 +126,7 @@ export async function fetchListingsBySeller(sellerId: string): Promise<Listing[]
 export const fetchListingById = cache(async function fetchListingById(id: string): Promise<Listing | null> {
   try {
     const supabase = await createClient();
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from("listings")
       .select(
         `id, seller_id, title_en, title_ar, price, currency, city_en, city_ar,
@@ -138,7 +138,25 @@ export const fetchListingById = cache(async function fetchListingById(id: string
       .maybeSingle();
 
     if (error) {
-      console.error("[fetchListingById] query failed:", error.message);
+      // Same graceful degradation as the feed: if the full select fails
+      // (migration/grant lag on this database), retry with base-era columns
+      // so the listing still opens instead of 404ing.
+      console.error(
+        "[fetchListingById] full query failed — retrying with base columns. Cause:",
+        error.message
+      );
+      ({ data, error } = await supabase
+        .from("listings")
+        .select(
+          `id, seller_id, title_en, title_ar, price, currency, city_en, city_ar,
+           country, category, images, availability, created_at`
+        )
+        .eq("id", id)
+        .maybeSingle());
+    }
+
+    if (error) {
+      console.error("[fetchListingById] fallback query also failed:", error.message);
       return null;
     }
     if (!data) return null;
@@ -163,60 +181,72 @@ export async function fetchListings(
   try {
     const supabase = await createClient();
 
-    // Only public, sellable rows: active moderation status, not inactive.
-    // These predicates line up with the partial/browse indexes so the query
-    // stays index-served at scale instead of scanning the table.
-    let q = supabase
-      .from("listings")
-      .select(
-        `id, seller_id, title_en, title_ar, price, currency, city_en, city_ar,
+    // Column sets. FULL is what the current code wants; BASE is only columns
+    // that have existed since migration 000. If the FULL query fails (a
+    // deployment where the DB hasn't run a newer migration yet, or a grant
+    // change), we fall back to BASE so the feed still renders old listings
+    // instead of silently showing nothing. rowToListing tolerates every
+    // missing optional field.
+    const FULL_COLUMNS = `id, seller_id, title_en, title_ar, price, currency, city_en, city_ar,
          country, category, contact_for_price, quantity, fulfillment, images, availability, created_at,
          featured_until, featured_priority,
-         seller:profiles ( display_name, full_name, id_verified )`,
-        { count: "exact" }
-      )
-      .eq("status", "active")
-      .neq("availability", "inactive");
+         seller:profiles ( display_name, full_name, id_verified )`;
+    const BASE_COLUMNS = `id, seller_id, title_en, title_ar, price, currency, city_en, city_ar,
+         country, category, images, availability, created_at`;
 
-    if (filters.category && filters.category !== "cat_all") {
-      q = q.eq("category", filters.category);
-    }
-    if (filters.country) {
-      q = q.eq("country", filters.country);
-    }
-    if (filters.query && filters.query.trim() !== "") {
-      // Search both language title columns.
-      //
-      // SECURITY: the term is interpolated into a PostgREST .or() filter
-      // string, which has its own mini-syntax where `,` separates clauses
-      // and `(` `)` group them. Raw user input containing those characters
-      // could break out of the intended ilike clause and alter the filter
-      // (a filter-injection — not SQL injection, Supabase parameterizes the
-      // SQL itself, but the FILTER logic is attacker-influenced). Strip the
-      // reserved characters; also escape ilike wildcards so a user typing
-      // "%" or "_" searches for those literals instead of matching all rows.
-      const cleaned = filters.query
-        .trim()
-        .replace(/[(),]/g, " ") // PostgREST .or() syntax characters
-        .replace(/[%_]/g, (m) => `\\${m}`) // literal ilike wildcards
-        .slice(0, 100); // bound the term length
-      if (cleaned.trim() !== "") {
-        const term = `%${cleaned}%`;
-        q = q.or(`title_en.ilike.${term},title_ar.ilike.${term}`);
+    // Apply the same filters/paging to any select variant.
+    const buildQuery = (columns: string, withFeaturedOrder: boolean) => {
+      let q = supabase
+        .from("listings")
+        .select(columns, { count: "exact" })
+        .eq("status", "active")
+        .neq("availability", "inactive");
+
+      if (filters.category && filters.category !== "cat_all") {
+        q = q.eq("category", filters.category);
       }
-    }
+      if (filters.country) {
+        q = q.eq("country", filters.country);
+      }
+      if (filters.query && filters.query.trim() !== "") {
+        // SECURITY: the term is interpolated into a PostgREST .or() filter
+        // string, which has its own mini-syntax where `,` separates clauses
+        // and `(` `)` group them. Strip the reserved characters; escape ilike
+        // wildcards so "%"/"_" search literally; bound the length.
+        const cleaned = filters.query
+          .trim()
+          .replace(/[(),]/g, " ")
+          .replace(/[%_]/g, (m) => `\\${m}`)
+          .slice(0, 100);
+        if (cleaned.trim() !== "") {
+          const term = `%${cleaned}%`;
+          q = q.or(`title_en.ilike.${term},title_ar.ilike.${term}`);
+        }
+      }
 
-    // Featured first, then newest — same ordering intent as the featured
-    // ranking view, served by listings_featured_rank_idx / browse index.
-    q = q
-      .order("featured_priority", { ascending: false, nullsFirst: false })
-      .order("created_at", { ascending: false })
-      .range(from, to);
+      // Featured first (when the column exists), then newest.
+      if (withFeaturedOrder) {
+        q = q.order("featured_priority", { ascending: false, nullsFirst: false });
+      }
+      return q.order("created_at", { ascending: false }).range(from, to);
+    };
 
-    const { data, error, count } = await q;
+    let { data, error, count } = await buildQuery(FULL_COLUMNS, true);
 
     if (error) {
-      console.error("[fetchListings] query failed:", error.message);
+      // Make the REAL cause visible in server logs (it was previously easy to
+      // miss, leaving an unexplained empty feed after deployments), then
+      // degrade gracefully so users still see listings.
+      console.error(
+        "[fetchListings] full query failed — retrying with base columns. " +
+          "Likely a migration or grant not yet applied to this database. Cause:",
+        error.message
+      );
+      ({ data, error, count } = await buildQuery(BASE_COLUMNS, false));
+    }
+
+    if (error) {
+      console.error("[fetchListings] fallback query also failed:", error.message);
       return { listings: [], hasMore: false, error: error.message };
     }
 
