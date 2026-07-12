@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { createClientAsync } from "@/lib/supabase/client";
 import { validatePassword } from "@/lib/password";
 import { useLanguage } from "@/lib/language-context";
 import Header from "@/components/Header";
@@ -28,25 +28,35 @@ export default function ResetPasswordPage() {
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    const supabase = createClient();
+    let unsub: (() => void) | undefined;
+    let cancelled = false;
 
-    // The recovery link creates a session; listen for it. Also check the
-    // current session directly in case the event fired before we subscribed.
-    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "PASSWORD_RECOVERY" || session) {
-        setReady(true);
+    (async () => {
+      const supabase = await createClientAsync();
+      if (cancelled) return;
+
+      // The recovery link creates a session; listen for it. Also check the
+      // current session directly in case the event fired before we subscribed.
+      const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+        if (event === "PASSWORD_RECOVERY" || session) {
+          setReady(true);
+          setChecking(false);
+        }
+      });
+      unsub = () => listener.subscription.unsubscribe();
+
+      supabase.auth.getSession().then(({ data }) => {
+        if (data.session) {
+          setReady(true);
+        }
         setChecking(false);
-      }
-    });
+      });
+    })();
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) {
-        setReady(true);
-      }
-      setChecking(false);
-    });
-
-    return () => listener.subscription.unsubscribe();
+    return () => {
+      cancelled = true;
+      unsub?.();
+    };
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -65,7 +75,7 @@ export default function ResetPasswordPage() {
 
     setLoading(true);
     try {
-      const supabase = createClient();
+      const supabase = await createClientAsync();
       const { error: updateError } = await supabase.auth.updateUser({ password });
 
       if (updateError) {

@@ -3,7 +3,7 @@
 import { useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { createClientAsync } from "@/lib/supabase/client";
 import Logo from "@/components/Logo";
 import { useLanguage } from "@/lib/language-context";
 
@@ -22,7 +22,7 @@ function LoginForm() {
     setLoading(true);
 
     try {
-      const supabase = createClient();
+      const supabase = await createClientAsync();
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,

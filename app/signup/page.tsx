@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
+import { createClientAsync } from "@/lib/supabase/client";
 import { getSiteUrl } from "@/lib/site-url";
 import { validatePassword } from "@/lib/password";
 import Logo from "@/components/Logo";
@@ -56,7 +56,7 @@ export default function SignUpPage() {
     setLoading(true);
 
     try {
-      const supabase = createClient();
+      const supabase = await createClientAsync();
 
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,

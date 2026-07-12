@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
+import { createClientAsync } from "@/lib/supabase/client";
 import { getSiteUrl } from "@/lib/site-url";
 import { useLanguage } from "@/lib/language-context";
 import Header from "@/components/Header";
@@ -21,7 +21,7 @@ export default function ForgotPasswordPage() {
     setLoading(true);
 
     try {
-      const supabase = createClient();
+      const supabase = await createClientAsync();
       // Sends the reset email. redirectTo is where the link lands the user —
       // our update-password page, which must also be in Supabase's Auth
       // redirect allowlist. resetPasswordForEmail deliberately resolves
