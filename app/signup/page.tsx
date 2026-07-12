@@ -98,59 +98,58 @@ export default function SignUpPage() {
         // an opaque "{}" into a concrete, actionable diagnosis every time.
         const isUninformative = !msg || msg.trim() === "{}" || msg.trim() === "[object Object]";
         if (isUninformative) {
+          // The wrapped error is opaque. Reproduce the signup POST with a raw
+          // fetch so we can read GoTrue's ACTUAL error body verbatim. A 500's
+          // body reliably distinguishes the two real causes:
+          //   "Error sending confirmation email" -> SMTP misconfigured
+          //   "Database error saving new user"   -> a trigger on the signup
+          //                                         path is throwing
           try {
             const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
             const rawKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-            const probe = await fetch(`${rawUrl}/auth/v1/settings`, {
-              headers: { apikey: rawKey ?? "" },
+            const rawResp = await fetch(`${rawUrl}/auth/v1/signup`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                apikey: rawKey ?? "",
+                Authorization: `Bearer ${rawKey ?? ""}`,
+              },
+              body: JSON.stringify({
+                email,
+                password,
+                data: { full_name: fullName, phone: normalizedPhone },
+              }),
             });
-            const bodyText = await probe.text();
+            const rawBody = await rawResp.text();
             console.error(
-              "[signup] wrapped error was uninformative ('{}'). Raw probe of " +
-                "/auth/v1/settings — status:",
-              probe.status,
-              "body:",
-              bodyText.slice(0, 300)
+              "[signup] RAW GoTrue signup response — status:",
+              rawResp.status,
+              "| body:",
+              rawBody
             );
-            if (!probe.ok) {
+
+            if (/database error|saving new user/i.test(rawBody)) {
               setError(
-                `Sign-up is temporarily unavailable (auth server returned ${probe.status}). ` +
-                  "Please try again shortly, or contact support if this continues."
+                "Sign-up failed due to a server-side database error while creating your " +
+                  "account. (Operator: a trigger on the signup path is throwing — see the " +
+                  "exact GoTrue body in the console.)"
+              );
+            } else if (/confirmation email|sending email|smtp/i.test(rawBody)) {
+              setError(
+                "Your account was created, but the confirmation email couldn't be sent. " +
+                  "Try logging in, or contact support. (Operator: SMTP/email settings.)"
               );
             } else {
-              // The raw endpoint IS reachable and healthy (200), so the key,
-              // URL, and CORS are all confirmed fine. The failure is specific
-              // to the signup call itself — which, unlike a plain settings
-              // read, also triggers Supabase to send a confirmation email.
-              // The two most common real-world causes of exactly this
-              // pattern (settings OK, signup 500) are: (1) SMTP/email sending
-              // failing server-side, or (2) the emailRedirectTo URL not being
-              // in Supabase's Auth redirect allowlist. Critically, Supabase
-              // often creates the auth user FIRST and only fails on the
-              // email step after — so a retry with the same email can then
-              // wrongly say "already registered." Tell the user the truth.
-              console.error(
-                "[signup] settings endpoint healthy (200) but signup itself failed. " +
-                  "This points to the confirmation-email step (SMTP config or the " +
-                  "emailRedirectTo URL not being in Supabase's redirect allowlist), " +
-                  "not a key/network/CORS problem — check Supabase Dashboard → " +
-                  "Authentication → Logs for the exact server-side reason."
-              );
               setError(
-                "We couldn't finish sending your confirmation email, but your account " +
-                  "may already be created. Please check your inbox for a confirmation " +
-                  "link, or try logging in directly. If neither works, please try again " +
-                  "in a few minutes."
+                `Sign-up failed (server returned ${rawResp.status}). The exact reason has ` +
+                  "been logged to the console. Please try again shortly."
               );
             }
-          } catch (probeErr) {
-            // The raw fetch itself failed — this is a genuine network/CORS/
-            // reachability problem, now confirmed directly rather than
-            // inferred from a mangled library error.
-            console.error("[signup] raw probe to /auth/v1/settings also failed:", probeErr);
+          } catch (rawErr) {
+            console.error("[signup] raw signup probe threw:", rawErr);
             setError(
-              "We can't reach the sign-up service from your network right now. " +
-                "Please check your connection (or try disabling a VPN/ad-blocker) and try again."
+              "We can't reach the sign-up service right now. Please check your connection " +
+                "and try again."
             );
           }
           setLoading(false);
