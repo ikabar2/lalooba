@@ -174,7 +174,7 @@ export default function AccountPage() {
         .from("profiles")
         .update({ avatar_url: bustedUrl })
         .eq("id", userId)
-        .select();
+        .select("id");
 
       if (updateError) {
         console.error("[account] Saving avatar URL failed:", updateError);
@@ -231,7 +231,8 @@ export default function AccountPage() {
           country: country || null,
         })
         .eq("id", userId)
-        .select(); // return the updated row so we can confirm it actually persisted
+        .select("id"); // confirm the row persisted; select only id so this
+        // never needs read access to sensitive columns (RETURNING * would).
 
       if (updateError) {
         console.error("[account] Saving profile failed:", updateError);

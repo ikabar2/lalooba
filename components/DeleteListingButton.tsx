@@ -25,7 +25,7 @@ export default function DeleteListingButton({ listingId }: { listingId: string }
         .from("listings")
         .delete()
         .eq("id", listingId)
-        .select(); // returns deleted rows so we can confirm it actually happened
+        .select("id"); // confirm deletion; select only id (no RETURNING *)
 
       if (delError) {
         console.error("[delete-listing] failed:", delError);
