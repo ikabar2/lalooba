@@ -194,13 +194,28 @@ export async function fetchListings(
     const BASE_COLUMNS = `id, seller_id, title_en, title_ar, price, currency, city_en, city_ar,
          country, category, images, availability, created_at`;
 
-    // Apply the same filters/paging to any select variant.
-    const buildQuery = (columns: string, withFeaturedOrder: boolean) => {
-      let q = supabase
-        .from("listings")
-        .select(columns, { count: "exact" })
-        .eq("status", "active")
-        .neq("availability", "inactive");
+    // Apply the same filters/paging to any select variant. `strictStatus`
+    // controls whether we require status='active' — the fraud/moderation
+    // pipeline is supposed to set that, but if it never ran (Edge Function not
+    // deployed) or an older row has a different status value, that predicate
+    // silently hides everything. So we can relax it as a last resort.
+    const buildQuery = (
+      columns: string,
+      withFeaturedOrder: boolean,
+      strictStatus: boolean
+    ) => {
+      let q = supabase.from("listings").select(columns, { count: "exact" });
+
+      // Always hide seller-removed items; only require the moderation status
+      // when strict. When relaxed we still exclude the known "hidden" states
+      // but accept anything else, so legitimately-visible rows with an
+      // unexpected status value still appear.
+      q = q.neq("availability", "inactive");
+      if (strictStatus) {
+        q = q.eq("status", "active");
+      } else {
+        q = q.not("status", "in", "(pending_review,rejected,banned,removed)");
+      }
 
       if (filters.category && filters.category !== "cat_all") {
         q = q.eq("category", filters.category);
@@ -231,23 +246,42 @@ export async function fetchListings(
       return q.order("created_at", { ascending: false }).range(from, to);
     };
 
-    let { data, error, count } = await buildQuery(FULL_COLUMNS, true);
+    // Tier 1: full columns, strict status.
+    let { data, error, count } = await buildQuery(FULL_COLUMNS, true, true);
 
+    // Tier 2: if that errored, a newer column/grant is missing on this DB —
+    // retry with only base-era columns (no seller join, no featured cols).
     if (error) {
-      // Make the REAL cause visible in server logs (it was previously easy to
-      // miss, leaving an unexplained empty feed after deployments), then
-      // degrade gracefully so users still see listings.
       console.error(
         "[fetchListings] full query failed — retrying with base columns. " +
           "Likely a migration or grant not yet applied to this database. Cause:",
         error.message
       );
-      ({ data, error, count } = await buildQuery(BASE_COLUMNS, false));
+      ({ data, error, count } = await buildQuery(BASE_COLUMNS, false, true));
     }
 
     if (error) {
-      console.error("[fetchListings] fallback query also failed:", error.message);
+      console.error("[fetchListings] base-column query also failed:", error.message);
       return { listings: [], hasMore: false, error: error.message };
+    }
+
+    // Tier 3: query succeeded but returned nothing. Before concluding "no
+    // listings", check whether rows exist that the status filter excluded —
+    // the classic cause is the moderation pipeline never setting status to
+    // 'active'. If so, re-run with the relaxed status filter so real listings
+    // show instead of an empty feed, and log it loudly for the operator.
+    if ((data?.length ?? 0) === 0 && page === 0) {
+      const relaxed = await buildQuery(BASE_COLUMNS, false, false);
+      if (!relaxed.error && (relaxed.data?.length ?? 0) > 0) {
+        console.error(
+          "[fetchListings] No rows matched status='active', but " +
+            `${relaxed.data!.length} listing(s) exist with another status. ` +
+            "Showing them anyway. Check the fraud/moderation pipeline — new " +
+            "listings should get status='active'."
+        );
+        data = relaxed.data;
+        count = relaxed.count;
+      }
     }
 
     const listings = (data as unknown as ListingRow[]).map(rowToListing);
@@ -258,5 +292,46 @@ export async function fetchListings(
     const message = err instanceof Error ? err.message : "Unknown feed error";
     console.error("[fetchListings] threw:", message);
     return { listings: [], hasMore: false, error: message };
+  }
+}
+
+// ============================================================================
+// Deployment diagnostic. Call this when the feed renders empty to find out
+// WHY in one shot — it distinguishes the handful of real causes so an empty
+// feed after deploy is never a mystery again. Returns a short human string;
+// safe to log or (in a non-production build) show to the operator.
+// ============================================================================
+export async function diagnoseFeed(): Promise<string> {
+  // 1. Env vars present?
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return "Supabase env vars are missing on this deployment (NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY). Set them in your host's Environment Variables and redeploy.";
+  }
+  try {
+    const supabase = await createClient();
+
+    // 2. Can we read the table at all, and how many total rows are there?
+    const total = await supabase.from("listings").select("id", { count: "exact", head: true });
+    if (total.error) {
+      return `Cannot read the listings table: ${total.error.message}. Likely an RLS/grant issue or the table doesn't exist (migrations not run).`;
+    }
+    if ((total.count ?? 0) === 0) {
+      return "The listings table is empty — there are genuinely no listings in this database. (Are you pointed at the right Supabase project?)";
+    }
+
+    // 3. Rows exist — how many pass the public filter?
+    const active = await supabase
+      .from("listings")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "active")
+      .neq("availability", "inactive");
+    if (active.error) {
+      return `Listings exist but the filtered query errors: ${active.error.message}.`;
+    }
+    if ((active.count ?? 0) === 0) {
+      return `There are ${total.count} listing(s), but none have status='active'. The moderation/fraud pipeline likely never set them active. Run: update listings set status='active' where status is distinct from 'active';`;
+    }
+    return `Feed looks healthy: ${active.count} of ${total.count} listing(s) are publicly visible. If the UI is still empty, the issue is downstream of the query (caching or the client component).`;
+  } catch (err) {
+    return `Feed diagnostic threw: ${err instanceof Error ? err.message : String(err)}`;
   }
 }

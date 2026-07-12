@@ -24,6 +24,13 @@ export default async function HomePage() {
   // currently-featured subset). ListingGrid does its own fetch for the main
   // grid so it can apply the visitor's country sort.
   const { listings } = await fetchListings({ page: 0 });
+  // If the feed came back empty, log exactly why to the server logs so an
+  // empty deployment is diagnosable in one look (env vars, migrations, RLS,
+  // or a status-pipeline issue) rather than a silent blank grid.
+  if (listings.length === 0) {
+    const { diagnoseFeed } = await import("@/lib/listings-query");
+    console.error("[home] Feed is empty. Diagnosis:", await diagnoseFeed());
+  }
   const jeebLiOffers = await fetchJeebLiOffers();
 
   return (
