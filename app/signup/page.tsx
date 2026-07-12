@@ -77,8 +77,20 @@ export default function SignUpPage() {
         const msg = signUpError.message ?? "";
         const looksLikeNetworkOrRegionBlock =
           /country|region|not available|failed to fetch|network|load failed|timeout|unreachable/i.test(msg);
+        // The "No API key found in request" 500 means the anon key didn't make
+        // it into the browser bundle (env var added after the last build, or a
+        // stale build). Detect it and say something actionable.
+        const looksLikeMissingApiKey =
+          /api key|apikey|no api key|invalid api key|jwt|not configured/i.test(msg) ||
+          (signUpError as { status?: number }).status === 500;
 
-        if (looksLikeNetworkOrRegionBlock) {
+        if (looksLikeMissingApiKey) {
+          setError(
+            "Sign-up is temporarily unavailable due to a configuration issue on our end. " +
+              "Please try again shortly. (If you're the site operator: the Supabase anon key " +
+              "isn't in the client bundle — set NEXT_PUBLIC_SUPABASE_ANON_KEY in the host and redeploy.)"
+          );
+        } else if (looksLikeNetworkOrRegionBlock) {
           setError(
             "We're having trouble reaching the sign-up service from your network right now. " +
               "This is a temporary connection issue, not a restriction on your account. " +
