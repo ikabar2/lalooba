@@ -68,27 +68,43 @@ export default function SignUpPage() {
       });
 
       if (signUpError) {
+        // Log the FULL real error — message, status, name — every time.
+        // Earlier code here guessed at causes (network block, missing anon
+        // key) from vague signals and, in one case, from HTTP status alone.
+        // That guess-based branching is what caused this exact same message
+        // to reappear across many different underlying failures: matching on
+        // "status === 500" treated ANY server-side error (a DB trigger issue,
+        // a rate limit, an auth hook failure — 500 is a generic bucket) as
+        // "the anon key is missing," discarding the real message every time.
+        // We no longer do that. The real error is always logged and always
+        // shown (or wrapped only for the few cases we can name with
+        // certainty from the message text itself).
+        console.error("[signup] auth error — full detail:", {
+          message: signUpError.message,
+          status: (signUpError as { status?: number }).status,
+          name: (signUpError as { name?: string }).name,
+        });
+
+        const msg = signUpError.message ?? "";
+
         // Some users (certain ISPs/regions) can't reach Supabase's auth
         // endpoint at the network layer — the request fails before it's
         // really processed, and Supabase surfaces a misleading
         // "not available in your country" style message. Detect that class
-        // of failure and show something accurate + actionable instead of
-        // implying we've geo-blocked them (we haven't).
-        const msg = signUpError.message ?? "";
+        // of failure from its actual wording only.
         const looksLikeNetworkOrRegionBlock =
-          /country|region|not available|failed to fetch|network|load failed|timeout|unreachable/i.test(msg);
-        // The "No API key found in request" 500 means the anon key didn't make
-        // it into the browser bundle (env var added after the last build, or a
-        // stale build). Detect it and say something actionable.
-        const looksLikeMissingApiKey =
-          /api key|apikey|no api key|invalid api key|jwt|not configured/i.test(msg) ||
-          (signUpError as { status?: number }).status === 500;
+          /country|region|not available|failed to fetch|network|load failed|timeout|unreachable/i.test(
+            msg
+          );
+
+        // Only for the literal, specific wording Supabase's gateway uses when
+        // no API key reached it at all — never inferred from status code.
+        const looksLikeMissingApiKey = /no api key found|invalid api key/i.test(msg);
 
         if (looksLikeMissingApiKey) {
           setError(
             "Sign-up is temporarily unavailable due to a configuration issue on our end. " +
-              "Please try again shortly. (If you're the site operator: the Supabase anon key " +
-              "isn't in the client bundle — set NEXT_PUBLIC_SUPABASE_ANON_KEY in the host and redeploy.)"
+              "Please try again shortly. (Site operator: " + msg + ")"
           );
         } else if (looksLikeNetworkOrRegionBlock) {
           setError(
@@ -98,6 +114,9 @@ export default function SignUpPage() {
               "off a VPN, or from mobile data to Wi-Fi)."
           );
         } else {
+          // Show Supabase's actual message. This is the single most useful
+          // piece of information for diagnosing what's really wrong — never
+          // replace it with a guess again.
           setError(msg || "We couldn't create your account. Please try again.");
         }
         setLoading(false);
@@ -120,9 +139,16 @@ export default function SignUpPage() {
       setLoading(false);
       setSubmitted(true);
     } catch (err) {
+      // This only fires if createClientAsync() itself threw (both the
+      // build-time bundle AND the /api/public-config runtime fallback had no
+      // config) — a genuinely different case from a signUp() error above.
+      // Log and surface the real message rather than assuming why.
+      console.error("[signup] createClientAsync/unexpected error:", err);
       setLoading(false);
       setError(
-        "Sign up isn't available yet — the site isn't connected to a Supabase project. (.env.local missing or invalid.)"
+        err instanceof Error
+          ? `Sign up isn't available right now: ${err.message}`
+          : "Sign up isn't available right now. Please try again shortly."
       );
     }
   }
