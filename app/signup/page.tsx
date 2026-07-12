@@ -87,6 +87,59 @@ export default function SignUpPage() {
 
         const msg = signUpError.message ?? "";
 
+        // supabase-js/auth-js sometimes hands back a message that is the
+        // LITERAL two-character string "{}" — this happens when its internal
+        // fetch fails with an uninformative rejection (no real Error, no
+        // parseable JSON body) and its own fallback path stringifies an
+        // empty object. That means the true cause is a layer BELOW our code,
+        // inside the library's error wrapping — so instead of guessing, we
+        // bypass supabase-js here and hit the Auth server directly with a
+        // raw fetch to see the actual status/body/CORS behavior. This turns
+        // an opaque "{}" into a concrete, actionable diagnosis every time.
+        const isUninformative = !msg || msg.trim() === "{}" || msg.trim() === "[object Object]";
+        if (isUninformative) {
+          try {
+            const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+            const rawKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+            const probe = await fetch(`${rawUrl}/auth/v1/settings`, {
+              headers: { apikey: rawKey ?? "" },
+            });
+            const bodyText = await probe.text();
+            console.error(
+              "[signup] wrapped error was uninformative ('{}'). Raw probe of " +
+                "/auth/v1/settings — status:",
+              probe.status,
+              "body:",
+              bodyText.slice(0, 300)
+            );
+            if (!probe.ok) {
+              setError(
+                `Sign-up is temporarily unavailable (auth server returned ${probe.status}). ` +
+                  "Please try again shortly, or contact support if this continues."
+              );
+            } else {
+              // The raw endpoint IS reachable and healthy, so the key/URL/CORS
+              // are all fine — the failure is specific to the signup call
+              // itself (a backend hook, rate limit, or transient error).
+              setError(
+                "Sign-up couldn't complete due to a temporary server issue (not your " +
+                  "connection or account). Please try again in a moment."
+              );
+            }
+          } catch (probeErr) {
+            // The raw fetch itself failed — this is a genuine network/CORS/
+            // reachability problem, now confirmed directly rather than
+            // inferred from a mangled library error.
+            console.error("[signup] raw probe to /auth/v1/settings also failed:", probeErr);
+            setError(
+              "We can't reach the sign-up service from your network right now. " +
+                "Please check your connection (or try disabling a VPN/ad-blocker) and try again."
+            );
+          }
+          setLoading(false);
+          return;
+        }
+
         // Some users (certain ISPs/regions) can't reach Supabase's auth
         // endpoint at the network layer — the request fails before it's
         // really processed, and Supabase surfaces a misleading
