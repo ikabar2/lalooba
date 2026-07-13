@@ -8,20 +8,7 @@ import { validatePassword } from "@/lib/password";
 import Logo from "@/components/Logo";
 import { useLanguage } from "@/lib/language-context";
 
-// Same NANP (North American Numbering Plan) rule enforced at the database
-// level in migration 007 — checked here too so the person gets an instant,
-// friendly error instead of waiting on a round trip just to hit a generic
-// database constraint failure.
-const NANP_REGEX = /^\+1[2-9]\d{2}[2-9]\d{6}$/;
-
-function normalizePhone(raw: string): string | null {
-  const digits = raw.replace(/\D/g, "");
-  // Accept either 10 digits (416 555 1234) or 11 with a leading 1
-  // (1 416 555 1234) — both are the same number, just typed differently.
-  if (digits.length === 10) return `+1${digits}`;
-  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
-  return null;
-}
+import { toValidNANP } from "@/lib/phone";
 
 export default function SignUpPage() {
   const { t } = useLanguage();
@@ -29,6 +16,7 @@ export default function SignUpPage() {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
+  const [country, setCountry] = useState<"CA" | "US">("CA");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
@@ -37,12 +25,22 @@ export default function SignUpPage() {
     e.preventDefault();
     setError(null);
 
-    const normalizedPhone = normalizePhone(phone);
-    if (!normalizedPhone || !NANP_REGEX.test(normalizedPhone)) {
-      setError(
-        "Lalooba is currently only available in the US and Canada, or not yet available in your region."
-      );
-      return;
+    // Phone is OPTIONAL at signup — email-only accounts are welcome. Sellers
+    // are asked for a phone later, at their first listing (seller
+    // onboarding), not here. If the person DID type a phone, validate it
+    // leniently (lib/phone.ts) and give a phone-specific message — never the
+    // old blanket "not available in your region" rejection, which wrongly
+    // turned a formatting hiccup into a geo-block.
+    let normalizedPhone: string | null = null;
+    if (phone.trim() !== "") {
+      normalizedPhone = toValidNANP(phone);
+      if (!normalizedPhone) {
+        setError(
+          "That phone number doesn't look like a valid US or Canadian number. " +
+            "Enter 10 digits (e.g. 416 555 0134), or leave it blank — you can add it later."
+        );
+        return;
+      }
     }
 
     // Client-side password strength check (Supabase enforces the same rule
@@ -62,7 +60,7 @@ export default function SignUpPage() {
         email,
         password,
         options: {
-          data: { full_name: fullName, phone: normalizedPhone },
+          data: { full_name: fullName, phone: normalizedPhone, country },
           emailRedirectTo: `${getSiteUrl()}/auth/callback`,
         },
       });
@@ -117,7 +115,7 @@ export default function SignUpPage() {
               body: JSON.stringify({
                 email,
                 password,
-                data: { full_name: fullName, phone: normalizedPhone },
+                data: { full_name: fullName, phone: normalizedPhone, country },
               }),
             });
             const rawBody = await rawResp.text();
@@ -170,7 +168,19 @@ export default function SignUpPage() {
         // no API key reached it at all — never inferred from status code.
         const looksLikeMissingApiKey = /no api key found|invalid api key/i.test(msg);
 
-        if (looksLikeMissingApiKey) {
+        // Email already exists. Guide the user to login / password reset
+        // instead of leaving them stuck. (If this is an email they thought
+        // was deleted, it means the auth.users row still exists — see the
+        // admin deletion docs.)
+        const looksAlreadyRegistered =
+          /already registered|already exists|user already|email.*taken/i.test(msg);
+
+        if (looksAlreadyRegistered) {
+          setError(
+            "An account with this email already exists. Try logging in instead, " +
+              "or use “Forgot password” if you don’t remember your password."
+          );
+        } else if (looksLikeMissingApiKey) {
           setError(
             "Sign-up is temporarily unavailable due to a configuration issue on our end. " +
               "Please try again shortly. (Site operator: " + msg + ")"
@@ -269,8 +279,28 @@ export default function SignUpPage() {
           className="mb-4 w-full rounded-md border border-navy-100 px-3 py-2 text-sm outline-none focus:border-navy-400"
         />
 
+        <label className="mb-1 block text-xs font-semibold text-navy-700">Country</label>
+        <div className="mb-4 flex gap-2" role="group" aria-label="Select your country">
+          {(["CA", "US"] as const).map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => setCountry(c)}
+              aria-pressed={country === c}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-sm font-semibold transition ${
+                country === c
+                  ? "border-navy-900 bg-navy-900 text-white"
+                  : "border-navy-100 bg-white text-navy-700 hover:bg-navy-50"
+              }`}
+            >
+              <span aria-hidden>{c === "CA" ? "🇨🇦" : "🇺🇸"}</span>
+              {c === "CA" ? "Canada" : "United States"}
+            </button>
+          ))}
+        </div>
+
         <label className="mb-1 block text-xs font-semibold text-navy-700">
-          Phone number
+          Phone number <span className="font-normal text-navy-400">(optional)</span>
         </label>
         <div className="mb-1 flex items-center gap-2">
           <span className="flex items-center gap-1.5 rounded-md border border-navy-100 bg-navy-50 px-2.5 py-2 text-sm font-medium text-navy-700">
@@ -280,7 +310,6 @@ export default function SignUpPage() {
             +1
           </span>
           <input
-            required
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
@@ -289,7 +318,8 @@ export default function SignUpPage() {
           />
         </div>
         <p className="mb-4 text-xs text-navy-400">
-          Lalooba is available to US &amp; Canada numbers only at this time.
+          US &amp; Canada numbers only. You can skip this now — sellers add a
+          phone when posting their first listing.
         </p>
 
         <label className="mb-1 block text-xs font-semibold text-navy-700">Email</label>

@@ -61,21 +61,39 @@ export default async function MessagesPage() {
   };
   const conversations = (conversationsRaw ?? []) as unknown as ConvRow[];
 
-  // Per-conversation unread counts (messages received & not yet read) in one
-  // round-trip, plus the last message preview for each thread. Skip entirely
-  // when there are no conversations (nothing to look up).
+  // Per-conversation unread counts (messages received & not yet read) plus
+  // the newest-message preview for each thread, both in single round-trips.
+  // conversation_previews() returns exactly ONE row per conversation
+  // (DISTINCT ON, index-served) instead of the previous approach of fetching
+  // every message the user has ever exchanged — which grew unboundedly with
+  // message history.
   const convIds = conversations.map((c) => c.id);
-  const [{ data: unreadRows }, { data: lastMessages }] =
-    convIds.length === 0
-      ? [{ data: [] as { conversation_id: string; unread: number }[] }, { data: [] as { conversation_id: string; content: string; sender_id: string }[] }]
-      : await Promise.all([
-          supabase.rpc("unread_counts_by_conversation"),
-          supabase
-            .from("messages")
-            .select("conversation_id, content, created_at, sender_id")
-            .in("conversation_id", convIds)
-            .order("created_at", { ascending: false }),
-        ]);
+  let unreadRows: { conversation_id: string; unread: number }[] = [];
+  let lastMessages: { conversation_id: string; content: string; sender_id: string }[] = [];
+  if (convIds.length > 0) {
+    const [unreadRes, previewRes] = await Promise.all([
+      supabase.rpc("unread_counts_by_conversation"),
+      supabase.rpc("conversation_previews"),
+    ]);
+    unreadRows = (unreadRes.data as typeof unreadRows) ?? [];
+    if (previewRes.error) {
+      // Fallback for a DB that hasn't run migration 020 yet: the old query,
+      // bounded to recent messages so it can't transfer unbounded data.
+      console.error(
+        "[messages] conversation_previews RPC unavailable (run migration 020). Falling back:",
+        previewRes.error.message
+      );
+      const { data } = await supabase
+        .from("messages")
+        .select("conversation_id, content, created_at, sender_id")
+        .in("conversation_id", convIds)
+        .order("created_at", { ascending: false })
+        .limit(500);
+      lastMessages = (data as unknown as typeof lastMessages) ?? [];
+    } else {
+      lastMessages = (previewRes.data as typeof lastMessages) ?? [];
+    }
+  }
 
   const unreadByConv = new Map<string, number>(
     (unreadRows ?? []).map((r: { conversation_id: string; unread: number }) => [r.conversation_id, r.unread])

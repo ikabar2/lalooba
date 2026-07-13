@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ensureProfile } from "@/lib/ensure-profile";
 import { friendlyErrorMessage } from "@/lib/error-messages";
+import { toValidNANP } from "@/lib/phone";
 import { safeRandomId } from "@/lib/safe-random-id";
 import { isHeic, convertHeicToJpeg } from "@/lib/heic";
 import Header from "@/components/Header";
@@ -24,6 +25,11 @@ export default function PostListingPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [title, setTitle] = useState("");
+  // Seller onboarding: a phone number is required to POST (not to browse or
+  // buy). If the seller's profile doesn't have one yet, this field appears
+  // and is saved to their profile with their first listing.
+  const [sellerPhone, setSellerPhone] = useState("");
+  const [needsPhone, setNeedsPhone] = useState(false);
   const [price, setPrice] = useState("");
   const [contactForPrice, setContactForPrice] = useState(false);
   const [city, setCity] = useState("");
@@ -39,6 +45,28 @@ export default function PostListingPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [convertingPhoto, setConvertingPhoto] = useState(false);
+
+  // Seller onboarding check: does this account already have a phone on file?
+  // Uses the my_phone() RPC (owner-only read path from migration 014) since
+  // the phone column itself is deliberately never selected by the app.
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const supabase = createClient();
+        const { data: userData } = await supabase.auth.getUser();
+        if (!userData.user || !active) return;
+        const { data: existingPhone } = await supabase.rpc("my_phone");
+        if (active) setNeedsPhone(!existingPhone);
+      } catch {
+        // If the check fails we simply don't gate — posting still works and
+        // the DB constraint remains the backstop.
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
@@ -138,6 +166,32 @@ export default function PostListingPage() {
       setLoading(false);
       setError(friendlyErrorMessage(profileResult.error, "We couldn't set up your profile. Please try again."));
       return;
+    }
+
+    // Seller onboarding: a phone is required to post. If the profile doesn't
+    // have one yet, validate the field shown in the form and save it BEFORE
+    // the (slow) photo uploads, so an invalid number fails fast.
+    if (needsPhone) {
+      const validPhone = toValidNANP(sellerPhone);
+      if (!validPhone) {
+        setLoading(false);
+        setError(
+          "To post a listing, please add a valid US or Canadian phone number (10 digits)."
+        );
+        return;
+      }
+      const { error: phoneError } = await supabase
+        .from("profiles")
+        .update({ phone: validPhone })
+        .eq("id", userData.user.id)
+        .select("id");
+      if (phoneError) {
+        console.error("[post] saving seller phone failed:", phoneError);
+        setLoading(false);
+        setError(friendlyErrorMessage(phoneError, "We couldn't save your phone number. Please try again."));
+        return;
+      }
+      setNeedsPhone(false);
     }
 
     // Upload every photo to Storage first, collecting their public URLs.
@@ -301,6 +355,30 @@ export default function PostListingPage() {
           />
           {convertingPhoto && (
             <p className="mt-2 text-xs text-navy-500">Processing photo…</p>
+          )}
+
+          {needsPhone && (
+            <div className="mb-2 rounded-lg border border-gold-200 bg-gold-50/40 p-4">
+              <label className="mb-1 block text-xs font-semibold text-navy-700">
+                Phone number <span className="font-normal text-navy-500">(required to sell)</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <span className="rounded-md border border-navy-100 bg-white px-2.5 py-2 text-sm font-medium text-navy-700">
+                  +1
+                </span>
+                <input
+                  type="tel"
+                  value={sellerPhone}
+                  onChange={(e) => setSellerPhone(e.target.value)}
+                  placeholder="416 555 1234"
+                  className="w-full rounded-md border border-navy-100 bg-white px-3 py-2 text-sm outline-none focus:border-navy-400"
+                />
+              </div>
+              <p className="mt-1 text-xs text-navy-500">
+                Sellers need a US or Canadian phone number on file. Saved to
+                your profile — buyers never see it.
+              </p>
+            </div>
           )}
 
           <label className="mb-1 mt-4 block text-xs font-semibold text-navy-700">Title</label>
