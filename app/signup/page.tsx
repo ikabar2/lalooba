@@ -237,11 +237,16 @@ export default function SignUpPage() {
       <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-navy-50 px-5">
         <Logo size="md" />
         <div className="max-w-sm rounded-xl border border-navy-100 bg-white p-6 text-center">
-          <p className="mb-2 font-display text-xl text-navy-900">Check your email</p>
+          <p className="mb-2 font-display text-xl text-navy-900">{t("signup_success_title")}</p>
           <p className="text-sm text-navy-600">
-            We sent a confirmation link to <strong>{email}</strong>. Click it to
-            activate your account.
+            {t("signup_success_body")} <strong className="text-navy-900">{email}</strong>
           </p>
+          <Link
+            href="/login"
+            className="mt-5 inline-block w-full rounded-lg bg-navy-900 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-navy-800"
+          >
+            {t("signup_return_signin")}
+          </Link>
         </div>
       </main>
     );

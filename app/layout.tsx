@@ -94,8 +94,26 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
+        {/* ROOT-CAUSE FIX (Arabic RTL offset): language is stored in
+            localStorage, which the server can't read, so <html> was rendered
+            LTR and only flipped to dir="rtl" in a post-hydration effect. That
+            LTR→RTL flip after first paint is what left Chrome/Edge/Samsung
+            Internet scrolled to the right (Safari happened to reflow cleanly).
+            This tiny script runs BEFORE the browser paints the body and sets
+            dir/lang synchronously, so the very first paint is already correct
+            in the saved language — no flip, no offset. suppressHydrationWarning
+            above prevents a mismatch warning since the client now differs from
+            the server-rendered default. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(){try{var l=window.localStorage.getItem('lalooba-lang');" +
+              "if(l==='ar'){document.documentElement.lang='ar';document.documentElement.dir='rtl';}" +
+              "else{document.documentElement.lang='en';document.documentElement.dir='ltr';}}catch(e){}})();",
+          }}
+        />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link

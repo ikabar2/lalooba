@@ -89,13 +89,19 @@ export default function MobileBottomNav() {
   const { t } = useLanguage();
   const [unread, setUnread] = useState(0);
 
-  // Fetch the unread message count for the Messages tab badge. Re-runs on
-  // navigation so opening a thread (which marks it read) updates the badge.
+  // Keep the Messages-tab badge current. Three triggers, so the count is
+  // right regardless of how a new message arrives or gets read:
+  //   1. on navigation (opening a thread marks it read → badge drops),
+  //   2. a lightweight poll every 30s (covers new inbound messages even if
+  //      realtime is unavailable on the project),
+  //   3. when the tab regains focus/visibility (returning to a backgrounded
+  //      PWA/tab immediately reflects anything that arrived while away).
   useEffect(() => {
     let active = true;
-    (async () => {
+    const supabase = createClient();
+
+    async function refresh() {
       try {
-        const supabase = createClient();
         const { data } = await supabase.auth.getUser();
         if (!data.user) {
           if (active) setUnread(0);
@@ -106,9 +112,21 @@ export default function MobileBottomNav() {
       } catch {
         if (active) setUnread(0);
       }
-    })();
+    }
+
+    refresh();
+    const interval = setInterval(refresh, 30000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", refresh);
+
     return () => {
       active = false;
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", refresh);
     };
   }, [pathname]);
 

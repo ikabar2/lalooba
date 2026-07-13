@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useLanguage } from "@/lib/language-context";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ensureProfile } from "@/lib/ensure-profile";
@@ -21,6 +22,7 @@ const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB — matches the bucket's fi
 const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/avif"];
 
 export default function PostListingPage() {
+  const { t } = useLanguage();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -146,7 +148,7 @@ export default function PostListingPage() {
       supabase = createClient();
     } catch {
       setLoading(false);
-      setError("Posting isn't available yet — Supabase isn't connected (.env.local).");
+      setError(t("post_err_no_supabase"));
       return;
     }
 
@@ -176,7 +178,7 @@ export default function PostListingPage() {
       if (!validPhone) {
         setLoading(false);
         setError(
-          "To post a listing, please add a valid US or Canadian phone number (10 digits)."
+          t("post_err_phone_required")
         );
         return;
       }
@@ -287,7 +289,7 @@ export default function PostListingPage() {
 
       <main className="mx-auto max-w-lg px-5 py-10">
         <h1 className="mb-1 font-display text-2xl font-medium text-navy-900">
-          Post a listing
+          {t("post_heading")}
         </h1>
         <p className="mb-6 text-sm text-navy-600">
           Free to post. New, unverified accounts may have listings held for
@@ -302,7 +304,7 @@ export default function PostListingPage() {
           {/* Photos first — this is what actually drives clicks, so it
               shouldn't be an afterthought at the bottom of the form */}
           <label className="mb-1 block text-xs font-semibold text-navy-700">
-            Photos ({images.length}/{MAX_IMAGES})
+            {t("post_photos")} ({images.length}/{MAX_IMAGES})
           </label>
           <p className="mb-2 text-xs text-navy-500">
             Add a few angles — listings with multiple photos get more messages.
@@ -340,7 +342,7 @@ export default function PostListingPage() {
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M12 5v14M5 12h14" strokeLinecap="round" />
                 </svg>
-                <span className="text-[10px] font-semibold">Add photo</span>
+                <span className="text-[10px] font-semibold">{t("post_add_photo")}</span>
               </button>
             )}
           </div>
@@ -354,13 +356,13 @@ export default function PostListingPage() {
             className="hidden"
           />
           {convertingPhoto && (
-            <p className="mt-2 text-xs text-navy-500">Processing photo…</p>
+            <p className="mt-2 text-xs text-navy-500">{t("post_processing_photo")}</p>
           )}
 
           {needsPhone && (
             <div className="mb-2 rounded-lg border border-gold-200 bg-gold-50/40 p-4">
               <label className="mb-1 block text-xs font-semibold text-navy-700">
-                Phone number <span className="font-normal text-navy-500">(required to sell)</span>
+                {t("post_phone_label")} <span className="font-normal text-navy-500">{t("post_phone_required_note")}</span>
               </label>
               <div className="flex items-center gap-2">
                 <span className="rounded-md border border-navy-100 bg-white px-2.5 py-2 text-sm font-medium text-navy-700">
@@ -375,23 +377,22 @@ export default function PostListingPage() {
                 />
               </div>
               <p className="mt-1 text-xs text-navy-500">
-                Sellers need a US or Canadian phone number on file. Saved to
-                your profile — buyers never see it.
+                {t("post_seller_phone_help")}
               </p>
             </div>
           )}
 
-          <label className="mb-1 mt-4 block text-xs font-semibold text-navy-700">Title</label>
+          <label className="mb-1 mt-4 block text-xs font-semibold text-navy-700">{t("post_title")}</label>
           <input
             required
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="e.g. Sudanese Thobe — white cotton"
+            placeholder={t("post_title_ph")}
             className="mb-4 w-full rounded-md border border-navy-100 px-3 py-2 text-sm outline-none focus:border-navy-400"
           />
 
           <label className="mb-1 block text-xs font-semibold text-navy-700">
-            Price ({country === "US" ? "USD" : "CAD"})
+            {t("post_price")} ({country === "US" ? "USD" : "CAD"})
           </label>
           <input
             required={!contactForPrice}
@@ -401,7 +402,7 @@ export default function PostListingPage() {
             step="0.01"
             value={contactForPrice ? "" : price}
             onChange={(e) => setPrice(e.target.value)}
-            placeholder={contactForPrice ? "Buyers will contact you for the price" : undefined}
+            placeholder={contactForPrice ? t("post_price_contact_ph") : undefined}
             className="mb-2 w-full rounded-md border border-navy-100 px-3 py-2 text-sm outline-none focus:border-navy-400 disabled:bg-navy-50 disabled:text-navy-400"
           />
           <label className="mb-4 flex cursor-pointer items-center gap-2 text-sm text-navy-700">
@@ -411,12 +412,12 @@ export default function PostListingPage() {
               onChange={(e) => setContactForPrice(e.target.checked)}
               className="h-4 w-4 rounded border-navy-300 text-orange-500 focus:ring-orange-400"
             />
-            Contact for price (don&apos;t show a fixed price)
+            {t("post_contact_for_price")}
           </label>
 
           <div className="mb-4 flex gap-3">
             <div className="flex-1">
-              <label className="mb-1 block text-xs font-semibold text-navy-700">City</label>
+              <label className="mb-1 block text-xs font-semibold text-navy-700">{t("post_city")}</label>
               <input
                 required
                 value={city}
@@ -425,19 +426,19 @@ export default function PostListingPage() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-navy-700">Country</label>
+              <label className="mb-1 block text-xs font-semibold text-navy-700">{t("post_country")}</label>
               <select
                 value={country}
                 onChange={(e) => setCountry(e.target.value)}
                 className="rounded-md border border-navy-100 px-3 py-2 text-sm outline-none focus:border-navy-400"
               >
-                <option value="CA">Canada</option>
-                <option value="US">United States</option>
+                <option value="CA">{t("post_canada")}</option>
+                <option value="US">{t("post_united_states")}</option>
               </select>
             </div>
           </div>
 
-          <label className="mb-1 block text-xs font-semibold text-navy-700">Category</label>
+          <label className="mb-1 block text-xs font-semibold text-navy-700">{t("post_category")}</label>
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
@@ -466,7 +467,7 @@ export default function PostListingPage() {
                     min="0"
                     value={quantity}
                     onChange={(e) => setQuantity(e.target.value)}
-                    placeholder="e.g. 10"
+                    placeholder={t("post_quantity_ph")}
                     className="w-full rounded-md border border-navy-100 px-3 py-2 text-sm outline-none focus:border-navy-400"
                   />
                 </div>
@@ -479,21 +480,22 @@ export default function PostListingPage() {
                     onChange={(e) => setFulfillment(e.target.value)}
                     className="w-full rounded-md border border-navy-100 px-3 py-2 text-sm outline-none focus:border-navy-400"
                   >
-                    <option value="pickup">Pickup only</option>
-                    <option value="delivery">Delivery only</option>
-                    <option value="both">Pickup or delivery</option>
+                    <option value="pickup">{t("post_fulfillment_pickup")}</option>
+                    <option value="delivery">{t("post_fulfillment_delivery")}</option>
+                    <option value="both">{t("post_fulfillment_both")}</option>
                   </select>
                 </div>
               </div>
             </>
           )}
 
-          <label className="mb-1 block text-xs font-semibold text-navy-700">Description</label>
+          <label className="mb-1 block text-xs font-semibold text-navy-700">{t("post_description")}</label>
           <textarea
             required
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={4}
+            placeholder={t("post_description_ph")}
             className="mb-5 w-full rounded-md border border-navy-100 px-3 py-2 text-sm outline-none focus:border-navy-400"
           />
 
@@ -506,7 +508,7 @@ export default function PostListingPage() {
             disabled={loading}
             className="w-full rounded-md bg-navy-900 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-navy-800 disabled:opacity-50"
           >
-            {loading ? "Publishing…" : "Publish listing"}
+            {loading ? t("post_publishing") : t("post_publish")}
           </button>
         </form>
       </main>

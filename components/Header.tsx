@@ -92,6 +92,8 @@ export default function Header({ detectedCity }: { detectedCity: string | null }
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
     let messageChannel: ReturnType<ReturnType<typeof createClient>["channel"]> | undefined;
+    let pollInterval: ReturnType<typeof setInterval> | undefined;
+    let onVisible: (() => void) | undefined;
 
     async function refreshUnread(supabase: ReturnType<typeof createClient>) {
       try {
@@ -116,6 +118,17 @@ export default function Header({ detectedCity }: { detectedCity: string | null }
         });
         // Initial unread count for the notification badge.
         await refreshUnread(supabase);
+
+        // Resilience fallback (independent of realtime, which can silently
+        // disconnect or be disabled on the project): poll every 30s and
+        // refresh whenever the tab regains focus/visibility.
+        if (pollInterval) clearInterval(pollInterval);
+        pollInterval = setInterval(() => refreshUnread(supabase), 30000);
+        onVisible = () => {
+          if (document.visibilityState === "visible") refreshUnread(supabase);
+        };
+        document.addEventListener("visibilitychange", onVisible);
+        window.addEventListener("focus", onVisible);
 
         // Real-time: bump the badge the moment a new message arrives in any
         // of the user's conversations. We subscribe to all message inserts
@@ -179,6 +192,11 @@ export default function Header({ detectedCity }: { detectedCity: string | null }
       unsubscribe = () => {
         listener.subscription.unsubscribe();
         if (messageChannel) supabase.removeChannel(messageChannel);
+        if (pollInterval) clearInterval(pollInterval);
+        if (onVisible) {
+          document.removeEventListener("visibilitychange", onVisible);
+          window.removeEventListener("focus", onVisible);
+        }
       };
     } catch (err) {
       console.warn("[Header] Supabase auth check skipped:", err);
