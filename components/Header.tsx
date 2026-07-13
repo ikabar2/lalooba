@@ -283,7 +283,7 @@ export default function Header({ detectedCity }: { detectedCity: string | null }
                 >
                   Messages
                   {unreadCount > 0 && (
-                    <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-white motion-safe:animate-pulse">
+                    <span className="absolute -end-1.5 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-white motion-safe:animate-pulse">
                       {unreadCount > 99 ? "99+" : unreadCount}
                     </span>
                   )}

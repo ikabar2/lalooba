@@ -16,6 +16,10 @@ export type Listing = {
   country: "CA" | "US";
   images: string[]; // first image is the cover/display photo
   category: TranslationKey; // one of the cat_* keys from translations.ts
+  // Seller-written free-text description (single column in the DB, written
+  // in whichever language the seller used). Optional: the feed/card queries
+  // deliberately don't fetch it — only the detail page does.
+  description?: string | null;
   // When true the listing has no fixed price — buyers contact the seller.
   // In that case `price` is not meaningful (stored as 0 / ignored in UI).
   contactForPrice?: boolean;

@@ -136,7 +136,7 @@ export default function MobileBottomNav() {
                 <span aria-hidden className="relative">
                   {item.icon}
                   {showBadge && (
-                    <span className="absolute -right-2 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-orange-500 px-1 text-[9px] font-bold text-white">
+                    <span className="absolute -end-2 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-orange-500 px-1 text-[9px] font-bold text-white">
                       {unread > 99 ? "99+" : unread}
                     </span>
                   )}

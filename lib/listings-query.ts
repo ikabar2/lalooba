@@ -40,6 +40,7 @@ type ListingRow = {
   city_ar: string | null;
   country: string;
   category: string | null;
+  description: string | null;
   quantity: number | null;
   fulfillment: string | null;
   images: string[] | null;
@@ -72,6 +73,7 @@ function rowToListing(row: ListingRow): Listing {
     country: row.country === "US" ? "US" : "CA",
     images: row.images && row.images.length > 0 ? row.images : [],
     category: (row.category as TranslationKey) ?? "cat_other",
+    description: row.description ?? null,
     contactForPrice: !!row.contact_for_price,
     quantity: row.quantity,
     fulfillment: (row.fulfillment as Listing["fulfillment"]) ?? null,
@@ -130,7 +132,7 @@ export const fetchListingById = cache(async function fetchListingById(id: string
       .from("listings")
       .select(
         `id, seller_id, title_en, title_ar, price, currency, city_en, city_ar,
-         country, category, contact_for_price, quantity, fulfillment, images, availability, created_at,
+         country, category, description, contact_for_price, quantity, fulfillment, images, availability, created_at,
          featured_until, featured_priority,
          seller:profiles ( display_name, full_name, id_verified )`
       )
@@ -149,7 +151,7 @@ export const fetchListingById = cache(async function fetchListingById(id: string
         .from("listings")
         .select(
           `id, seller_id, title_en, title_ar, price, currency, city_en, city_ar,
-           country, category, images, availability, created_at`
+           country, category, description, images, availability, created_at`
         )
         .eq("id", id)
         .maybeSingle());

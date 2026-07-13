@@ -112,6 +112,20 @@ export default function ListingDetailBody({ listing }: { listing: Listing }) {
             {listing.city[lang]}, {bi(countryNames[listing.country], lang)}
           </p>
 
+          {listing.description && listing.description.trim() !== "" && (
+            <div className="mb-6">
+              <h2 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-navy-500">
+                {t("detail_description")}
+              </h2>
+              {/* whitespace-pre-line keeps the seller's paragraphs/line breaks;
+                  dir="auto" lets the browser render Arabic text RTL and
+                  English LTR correctly regardless of the UI language. */}
+              <p dir="auto" className="whitespace-pre-line text-sm leading-relaxed text-navy-700">
+                {listing.description}
+              </p>
+            </div>
+          )}
+
           <div className="mb-4 flex items-center gap-3 rounded-lg border border-navy-100 bg-white p-3">
             <Link
               href={`/seller/${listing.sellerId}`}
