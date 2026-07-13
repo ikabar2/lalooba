@@ -23,6 +23,7 @@ function LoginForm() {
 
     try {
       const supabase = await createClientAsync();
+      if (!supabase) throw new Error("supabase-unavailable");
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,

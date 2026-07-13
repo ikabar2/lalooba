@@ -1,39 +1,54 @@
 import { createBrowserClient } from "@supabase/ssr";
 
 // Bare member expressions so Next.js can statically inline the values into the
-// browser bundle at build time (do NOT method-chain here — see note below).
+// browser bundle at build time (do NOT method-chain here).
 const INLINED_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const INLINED_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-// Cache the resolved config so we only ever fetch the runtime fallback once.
+// Module-level cache of the resolved config. Seeded from the build-time
+// inlined values; if those are missing (inlining didn't happen for this
+// deployment), primeSupabaseConfig() below fills them at runtime from
+// /api/public-config, which the SERVER can always provide.
 let cachedUrl = (INLINED_URL ?? "").trim();
 let cachedKey = (INLINED_ANON_KEY ?? "").trim();
 
-/**
- * Synchronous client creation using build-time-inlined env vars. This is the
- * fast path and works whenever NEXT_PUBLIC_* inlining succeeded (the normal
- * case). Throws if the values aren't in the bundle — callers that must be
- * resilient to a failed inline should use `createClientAsync()` instead.
- */
-export function createClient() {
-  if (!cachedUrl || !cachedKey) {
-    throw new Error(
-      "Supabase browser client is misconfigured: NEXT_PUBLIC_SUPABASE_URL / " +
-        "NEXT_PUBLIC_SUPABASE_ANON_KEY are missing from the client bundle."
-    );
-  }
-  return createBrowserClient(cachedUrl, cachedKey);
+type Client = ReturnType<typeof createBrowserClient>;
+// Public non-null client type for callers that annotate locals/params after a
+// null-guard (createClient() returns Client | null).
+export type SupabaseBrowserClient = Client;
+let client: Client | null = null;
+
+function build(): Client | null {
+  if (!cachedUrl || !cachedKey) return null;
+  if (!client) client = createBrowserClient(cachedUrl, cachedKey);
+  return client;
 }
 
 /**
- * Resilient client creation. Uses build-time-inlined values when present;
- * otherwise fetches the public config from the server at runtime (/api/
- * public-config), which ALWAYS has the values because the server reads
- * process.env at runtime. This makes auth work even if build-time inlining
- * of NEXT_PUBLIC_* didn't happen for any reason. Use this on the auth pages.
+ * Synchronous client accessor. Returns null (never throws) when config isn't
+ * available yet, so a missing/late-inlined key can NEVER crash the page — the
+ * previous throwing behavior propagated to the global error boundary and
+ * white-screened the whole app. Callers already guard their Supabase calls in
+ * try/catch or optional-chaining; returning null lets them degrade quietly and
+ * retry once config is primed.
  */
-export async function createClientAsync() {
-  if (!cachedUrl || !cachedKey) {
+export function createClient(): Client | null {
+  return build();
+}
+
+// Track the one-time runtime prime so we don't fetch repeatedly.
+let primePromise: Promise<void> | null = null;
+
+/**
+ * Ensure the module cache has config. If build-time inlining already provided
+ * it, this resolves immediately. Otherwise it fetches the public config from
+ * the server ONCE at runtime and seeds the cache, after which createClient()
+ * starts returning a real client. Safe to call many times.
+ */
+export function primeSupabaseConfig(): Promise<void> {
+  if (cachedUrl && cachedKey) return Promise.resolve();
+  if (primePromise) return primePromise;
+  primePromise = (async () => {
     try {
       const res = await fetch("/api/public-config", { cache: "no-store" });
       if (res.ok) {
@@ -41,19 +56,22 @@ export async function createClientAsync() {
         if (data.url && data.anonKey) {
           cachedUrl = data.url.trim();
           cachedKey = data.anonKey.trim();
+          client = null; // rebuild with the new config on next createClient()
         }
       }
     } catch {
-      // fall through to the error below
+      // leave unconfigured; callers keep degrading gracefully
     }
-  }
+  })();
+  return primePromise;
+}
 
-  if (!cachedUrl || !cachedKey) {
-    throw new Error(
-      "Supabase configuration is unavailable (both the client bundle and the " +
-        "runtime config endpoint returned nothing). Check NEXT_PUBLIC_SUPABASE_URL " +
-        "and NEXT_PUBLIC_SUPABASE_ANON_KEY in your host environment."
-    );
-  }
-  return createBrowserClient(cachedUrl, cachedKey);
+/**
+ * Resilient async client: primes config if needed, then returns a client.
+ * Returns null only if config is truly unavailable from both the bundle and
+ * the runtime endpoint. Used by the auth pages.
+ */
+export async function createClientAsync(): Promise<Client | null> {
+  await primeSupabaseConfig();
+  return build();
 }

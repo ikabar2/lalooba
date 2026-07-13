@@ -55,6 +55,7 @@ export default function SignUpPage() {
 
     try {
       const supabase = await createClientAsync();
+      if (!supabase) throw new Error("supabase-unavailable");
 
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,

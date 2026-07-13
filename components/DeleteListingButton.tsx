@@ -21,6 +21,7 @@ export default function DeleteListingButton({ listingId }: { listingId: string }
     setError(null);
     try {
       const supabase = createClient();
+      if (!supabase) return;
       const { data: rows, error: delError } = await supabase
         .from("listings")
         .delete()

@@ -31,6 +31,7 @@ export default function MessageThread({
   // without a page refresh, this is the actual "live chat" part.
   useEffect(() => {
     const supabase = createClient();
+    if (!supabase) return;
 
     const channel = supabase
       .channel(`conversation-${conversationId}`)
@@ -71,6 +72,7 @@ export default function MessageThread({
     setDraft("");
 
     const supabase = createClient();
+    if (!supabase) return;
     const { data, error } = await supabase
       .from("messages")
       .insert({ conversation_id: conversationId, sender_id: currentUserId, content })

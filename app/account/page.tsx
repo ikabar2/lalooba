@@ -60,8 +60,9 @@ export default function AccountPage() {
     let supabase;
     try {
       supabase = createClient();
+      if (!supabase) throw new Error("supabase-unavailable");
     } catch {
-      setError("This page isn't available yet — Supabase isn't connected (.env.local).");
+      setError("This isn't available right now. Please refresh and try again in a moment.");
       setLoading(false);
       return;
     }
@@ -141,6 +142,7 @@ export default function AccountPage() {
 
     try {
       const supabase = createClient();
+      if (!supabase) return;
       // Extension from the allow-listed MIME type, not the user filename
       // (path-traversal safety — same as the listing upload).
       const extByMime: Record<string, string> = {
@@ -209,6 +211,7 @@ export default function AccountPage() {
 
     try {
       const supabase = createClient();
+      if (!supabase) return;
       const trimmedDisplay = displayName.trim();
       const trimmedFirst = firstName.trim();
       const trimmedLast = lastName.trim();
@@ -282,6 +285,7 @@ export default function AccountPage() {
     setDeleteError(null);
     try {
       const supabase = createClient();
+      if (!supabase) return;
       // Permanently deletes the auth user; cascades remove profile, listings,
       // and messages (migration 010). Only ever deletes the caller.
       const { error: delError } = await supabase.rpc("delete_own_account");

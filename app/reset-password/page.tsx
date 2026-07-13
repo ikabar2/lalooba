@@ -33,6 +33,10 @@ export default function ResetPasswordPage() {
 
     (async () => {
       const supabase = await createClientAsync();
+      if (!supabase) {
+        setChecking(false);
+        return;
+      }
       if (cancelled) return;
 
       // The recovery link creates a session; listen for it. Also check the
@@ -76,6 +80,7 @@ export default function ResetPasswordPage() {
     setLoading(true);
     try {
       const supabase = await createClientAsync();
+      if (!supabase) throw new Error("supabase-unavailable");
       const { error: updateError } = await supabase.auth.updateUser({ password });
 
       if (updateError) {

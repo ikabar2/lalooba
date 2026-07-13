@@ -7,7 +7,7 @@ import Logo from "./Logo";
 import CountrySelector from "./CountrySelector";
 import LocationChip from "./LocationChip";
 import { useLanguage } from "@/lib/language-context";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, type SupabaseBrowserClient } from "@/lib/supabase/client";
 import { getDisplayName } from "@/lib/user-display";
 import type { TranslationKey } from "@/lib/translations";
 
@@ -91,11 +91,11 @@ export default function Header({ detectedCity }: { detectedCity: string | null }
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
-    let messageChannel: ReturnType<ReturnType<typeof createClient>["channel"]> | undefined;
+    let messageChannel: ReturnType<SupabaseBrowserClient["channel"]> | undefined;
     let pollInterval: ReturnType<typeof setInterval> | undefined;
     let onVisible: (() => void) | undefined;
 
-    async function refreshUnread(supabase: ReturnType<typeof createClient>) {
+    async function refreshUnread(supabase: SupabaseBrowserClient) {
       try {
         const { data: unread } = await supabase.rpc("unread_message_count");
         setUnreadCount(typeof unread === "number" ? unread : 0);
@@ -107,6 +107,7 @@ export default function Header({ detectedCity }: { detectedCity: string | null }
     async function loadAccount(userId: string, email: string | null) {
       try {
         const supabase = createClient();
+        if (!supabase) return;
         const { data: profile } = await supabase
           .from("profiles")
           .select("display_name, full_name")
@@ -167,6 +168,7 @@ export default function Header({ detectedCity }: { detectedCity: string | null }
 
     try {
       const supabase = createClient();
+      if (!supabase) return;
       supabase.auth
         .getUser()
         .then(({ data }) => {
@@ -211,6 +213,7 @@ export default function Header({ detectedCity }: { detectedCity: string | null }
     setUnreadCount(0);
     try {
       const supabase = createClient();
+      if (!supabase) return;
       // scope: "global" invalidates the session everywhere (all this user's
       // devices/tabs), not just this browser — the safest default for a
       // "sign out" action. Clears the auth tokens from storage too.

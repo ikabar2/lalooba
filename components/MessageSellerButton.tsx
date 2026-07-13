@@ -28,9 +28,10 @@ export default function MessageSellerButton({
     let supabase;
     try {
       supabase = createClient();
+      if (!supabase) throw new Error("supabase-unavailable");
     } catch {
       setLoading(false);
-      setError("Messaging isn't available yet — Supabase isn't connected (.env.local).");
+      setError("This isn't available right now. Please refresh and try again in a moment.");
       return;
     }
 

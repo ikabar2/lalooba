@@ -22,6 +22,7 @@ export default function ForgotPasswordPage() {
 
     try {
       const supabase = await createClientAsync();
+      if (!supabase) throw new Error("supabase-unavailable");
       // Sends the reset email. redirectTo is where the link lands the user —
       // our update-password page, which must also be in Supabase's Auth
       // redirect allowlist. resetPasswordForEmail deliberately resolves

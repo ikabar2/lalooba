@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLanguage } from "@/lib/language-context";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, type SupabaseBrowserClient } from "@/lib/supabase/client";
 import type { TranslationKey } from "@/lib/translations";
 
 // Persistent mobile bottom navigation — the standard native-app pattern for
@@ -99,34 +99,40 @@ export default function MobileBottomNav() {
   useEffect(() => {
     let active = true;
     const supabase = createClient();
+    if (!supabase) return;
 
-    async function refresh() {
+    // Take the client as a typed parameter (not a captured closure variable) —
+    // TS reliably keeps the non-null type through a parameter, whereas it
+    // re-widens a captured outer variable back to `| null` inside nested
+    // functions. Same pattern as Header's refreshUnread.
+    async function refresh(client: SupabaseBrowserClient) {
       try {
-        const { data } = await supabase.auth.getUser();
+        const { data } = await client.auth.getUser();
         if (!data.user) {
           if (active) setUnread(0);
           return;
         }
-        const { data: count } = await supabase.rpc("unread_message_count");
+        const { data: count } = await client.rpc("unread_message_count");
         if (active) setUnread(typeof count === "number" ? count : 0);
       } catch {
         if (active) setUnread(0);
       }
     }
 
-    refresh();
-    const interval = setInterval(refresh, 30000);
+    const run = () => refresh(supabase);
+    run();
+    const interval = setInterval(run, 30000);
     const onVisible = () => {
-      if (document.visibilityState === "visible") refresh();
+      if (document.visibilityState === "visible") run();
     };
     document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("focus", refresh);
+    window.addEventListener("focus", run);
 
     return () => {
       active = false;
       clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("focus", refresh);
+      window.removeEventListener("focus", run);
     };
   }, [pathname]);
 

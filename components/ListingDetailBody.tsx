@@ -29,6 +29,7 @@ export default function ListingDetailBody({ listing }: { listing: Listing }) {
     (async () => {
       try {
         const supabase = createClient();
+        if (!supabase) return;
         const { data } = await supabase.auth.getUser();
         if (active && data.user && data.user.id === listing.sellerId) {
           setIsOwnListing(true);

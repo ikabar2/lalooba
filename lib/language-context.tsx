@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
+import { primeSupabaseConfig } from "./supabase/client";
 import { translations, Lang, TranslationKey } from "./translations";
 
 type LanguageContextValue = {
@@ -34,6 +35,12 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   // which is known-good, letting the user back in. They can retry Arabic
   // deliberately; a silent reload loop can't trap them anymore.
   useEffect(() => {
+    // Prime Supabase config from the runtime endpoint as early as possible.
+    // If build-time inlining of NEXT_PUBLIC_* succeeded this is a no-op; if it
+    // didn't, this seeds the module cache so every createClient() call across
+    // the app returns a working client instead of null — without crashing.
+    primeSupabaseConfig();
+
     try {
       const crashedLastTime = window.sessionStorage.getItem("lalooba-lang-pending") === "ar";
       if (crashedLastTime) {

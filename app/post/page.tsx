@@ -56,6 +56,7 @@ export default function PostListingPage() {
     (async () => {
       try {
         const supabase = createClient();
+        if (!supabase) return;
         const { data: userData } = await supabase.auth.getUser();
         if (!userData.user || !active) return;
         const { data: existingPhone } = await supabase.rpc("my_phone");
@@ -146,6 +147,7 @@ export default function PostListingPage() {
     let supabase;
     try {
       supabase = createClient();
+      if (!supabase) throw new Error("supabase-unavailable");
     } catch {
       setLoading(false);
       setError(t("post_err_no_supabase"));
