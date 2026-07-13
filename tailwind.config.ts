@@ -44,7 +44,7 @@ const config: Config = {
       fontFamily: {
         sans: ["Inter", "system-ui", "-apple-system", "sans-serif"],
         display: ["Fraunces", "Georgia", "serif"],
-        arabic: ["Tajawal", "system-ui", "sans-serif"],
+        arabic: ["Cairo", "Tajawal", "system-ui", "sans-serif"],
       },
       borderRadius: {
         md: "8px",

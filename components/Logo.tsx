@@ -5,9 +5,9 @@ type LogoProps = {
 };
 
 const sizes = {
-  sm: { box: 30, icon: 18, name: "text-base", arabic: "text-sm", pad: "px-2.5 py-1.5" },
-  md: { box: 40, icon: 24, name: "text-xl", arabic: "text-base", pad: "px-3.5 py-2" },
-  lg: { box: 56, icon: 32, name: "text-3xl", arabic: "text-xl", pad: "px-5 py-3" },
+  sm: { box: 30, icon: 18, name: "text-lg", arabic: "text-base", pad: "px-2.5 py-1.5" },
+  md: { box: 40, icon: 24, name: "text-2xl", arabic: "text-xl", pad: "px-3.5 py-2" },
+  lg: { box: 56, icon: 32, name: "text-4xl", arabic: "text-2xl", pad: "px-5 py-3" },
 };
 
 export default function Logo({ size = "sm" }: LogoProps) {
@@ -23,17 +23,18 @@ export default function Logo({ size = "sm" }: LogoProps) {
         className="flex shrink-0 items-center justify-center rounded-lg bg-navy-900 shadow-sm"
         style={{ width: s.box, height: s.box }}
       >
-        <svg width={s.icon} height={s.icon} viewBox="0 0 64 64" aria-hidden="true">
-          <circle cx="32" cy="14" r="6" fill="#FF4500" />
-          <circle cx="52" cy="32" r="6" fill="#FF4500" />
-          <circle cx="32" cy="50" r="6" fill="#FF4500" />
-          <circle cx="12" cy="32" r="6" fill="#FF4500" />
-          <circle cx="32" cy="32" r="8" fill="none" stroke="#FF4500" strokeWidth="4" />
+        <svg width={s.icon} height={s.icon} viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          {/* Laloob (desert date) tree — the Sudanese tree Lalooba is named
+              for. Canopy = growth/provision, rooted base = community. */}
+          <circle cx="16" cy="12" r="8.5" fill="none" stroke="#FF4500" strokeWidth="2.6" />
+          <circle cx="16" cy="12" r="3" fill="#FF4500" />
+          <path d="M16 20.5 V27" stroke="#FF4500" strokeWidth="2.6" strokeLinecap="round" />
+          <path d="M11 27 H21" stroke="#FF4500" strokeWidth="2.6" strokeLinecap="round" />
         </svg>
       </div>
       <span className="flex items-baseline gap-2">
-        <span className={`font-bold text-navy-900 ${s.name}`}>Lalooba</span>
-        <span className={`arabic font-bold text-gold-400 ${s.arabic}`}>لالوبا</span>
+        <span className={`font-bold tracking-tight text-navy-900 ${s.name}`}>Lalooba</span>
+        <span className={`arabic font-black text-gold-400 ${s.arabic}`} style={{ fontWeight: 900 }}>لالوبا</span>
       </span>
     </Link>
   );
