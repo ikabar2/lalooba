@@ -23,6 +23,7 @@ const categoryKeys: TranslationKey[] = [
   "cat_crafts",
   "cat_homemade",
   "cat_electronics",
+  "cat_perfumes",
   "cat_cars",
   "cat_barbershop",
   "cat_tax",
@@ -40,6 +41,7 @@ export const categoryIcons: Record<string, string> = {
   cat_crafts: "💍", // Jewelry & Accessories (formerly Crafts)
   cat_homemade: "🥘",
   cat_electronics: "💻",
+  cat_perfumes: "🌸",
   cat_cars: "🚗",
   cat_barbershop: "📚", // Books, Arts & Gifts (formerly Barbershop)
   cat_tax: "🧘", // Health & Wellness (formerly Tax Filing)

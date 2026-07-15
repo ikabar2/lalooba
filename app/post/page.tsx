@@ -446,15 +446,16 @@ export default function PostListingPage() {
             onChange={(e) => setCategory(e.target.value)}
             className="mb-4 w-full rounded-md border border-navy-100 px-3 py-2 text-sm outline-none focus:border-navy-400"
           >
-            <option value="cat_clothing">👕 Clothing</option>
-            <option value="cat_food">🍲 Food</option>
-            <option value="cat_crafts">💍 Jewelry &amp; Accessories</option>
-            <option value="cat_homemade">🥘 Homemade Cook</option>
-            <option value="cat_electronics">💻 Electronics</option>
-            <option value="cat_cars">🚗 Cars</option>
-            <option value="cat_barbershop">📚 Books, Arts &amp; Gifts</option>
-            <option value="cat_tax">🧘 Health &amp; Wellness</option>
-            <option value="cat_other">➕ Other</option>
+            <option value="cat_clothing">👕 {t("cat_clothing")}</option>
+            <option value="cat_food">🍲 {t("cat_food")}</option>
+            <option value="cat_crafts">💍 {t("cat_crafts")}</option>
+            <option value="cat_homemade">🥘 {t("cat_homemade")}</option>
+            <option value="cat_electronics">💻 {t("cat_electronics")}</option>
+            <option value="cat_perfumes">🌸 {t("cat_perfumes")}</option>
+            <option value="cat_cars">🚗 {t("cat_cars")}</option>
+            <option value="cat_barbershop">📚 {t("cat_barbershop")}</option>
+            <option value="cat_tax">🧘 {t("cat_tax")}</option>
+            <option value="cat_other">➕ {t("cat_other")}</option>
           </select>
 
           {category === "cat_homemade" && (
@@ -462,7 +463,7 @@ export default function PostListingPage() {
               <div className="mb-4 grid grid-cols-2 gap-3">
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-navy-700">
-                    Quantity (portions)
+                    {t("post_quantity")}
                   </label>
                   <input
                     type="number"
@@ -475,7 +476,7 @@ export default function PostListingPage() {
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-navy-700">
-                    Pickup / delivery
+                    {t("post_fulfillment")}
                   </label>
                   <select
                     value={fulfillment}

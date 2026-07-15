@@ -12,8 +12,16 @@ type LanguageContextValue = {
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 
-export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [lang, setLang] = useState<Lang>("en");
+export function LanguageProvider({
+  children,
+  initialLang = "en",
+}: {
+  children: React.ReactNode;
+  initialLang?: Lang;
+}) {
+  // Seeded from the SSR-read cookie so the server-rendered dir and the first
+  // client render agree — no hydration mismatch, no LTR→RTL flip.
+  const [lang, setLang] = useState<Lang>(initialLang);
 
   // Restore saved preference on first load. localStorage access can throw
   // in some mobile contexts (Safari private browsing in older iOS
@@ -49,8 +57,13 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
         setLang("en");
         return;
       }
+      // One-time migration: users from before cookie persistence have their
+      // preference only in localStorage. If the cookie is absent but storage
+      // has a value, adopt it (and the change-effect below writes the cookie
+      // so SSR gets it right from the next request on).
+      const hasCookie = document.cookie.includes("lalooba-lang=");
       const stored = window.localStorage.getItem("lalooba-lang") as Lang | null;
-      if (stored === "en" || stored === "ar") setLang(stored);
+      if (!hasCookie && (stored === "en" || stored === "ar")) setLang(stored);
     } catch (err) {
       console.warn("[language] Couldn't read saved language preference:", err);
     }
@@ -67,10 +80,18 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
       /* storage restricted — non-fatal */
     }
 
+    // Keep html attributes for assistive tech / :lang() — note the LAYOUT
+    // direction of the root is pinned to LTR in globals.css regardless (see
+    // the Android Chromium note there); the visual RTL lives on the
+    // .main-layout-wrapper rendered below.
     document.documentElement.lang = lang;
     document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
 
+    // Cookie is the SSR source of truth (server components can read it and
+    // render dir at first paint). localStorage kept in sync for the crash
+    // self-heal marker logic and old-version compatibility.
     try {
+      document.cookie = `lalooba-lang=${lang}; path=/; max-age=31536000; samesite=lax`;
       window.localStorage.setItem("lalooba-lang", lang);
     } catch (err) {
       console.warn("[language] Couldn't save language preference:", err);
@@ -118,7 +139,14 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <LanguageContext.Provider value={{ lang, toggleLang, t }}>
-      {children}
+      {/* The ONLY element that carries the visual direction. The browser's
+          root scroll context (html/body) stays LTR (globals.css) so Android
+          Chromium can't inflate the layout viewport from negative-X
+          absolutes under RTL; everything the user sees flows RTL from here
+          down via normal CSS direction inheritance. */}
+      <div className="main-layout-wrapper" dir={lang === "ar" ? "rtl" : "ltr"}>
+        {children}
+      </div>
     </LanguageContext.Provider>
   );
 }

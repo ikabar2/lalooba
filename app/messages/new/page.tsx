@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { friendlyErrorMessage } from "@/lib/error-messages";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
@@ -60,7 +61,8 @@ export default function NewConversationPage() {
     setLoading(false);
 
     if (rpcError) {
-      setError(rpcError.message);
+      console.error("[messages-new] get_or_create_conversation failed:", rpcError);
+      setError(friendlyErrorMessage(rpcError, "We couldn't start that conversation. Please check the email and try again."));
       return;
     }
 

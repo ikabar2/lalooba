@@ -34,7 +34,7 @@ export default function Logo({ size = "sm" }: LogoProps) {
       </div>
       <span className="flex items-baseline gap-2">
         <span className={`font-bold tracking-tight text-navy-900 ${s.name}`}>Lalooba</span>
-        <span className={`arabic font-black text-gold-400 ${s.arabic}`} style={{ fontWeight: 900 }}>لالوبا</span>
+        <span className={`arabic font-black text-gold-400 ${s.arabic}`} style={{ fontWeight: 900 }}>لالوبة</span>
       </span>
     </Link>
   );

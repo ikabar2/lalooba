@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { cookies } from "next/headers";
 import "./globals.css";
 import { LanguageProvider } from "@/lib/language-context";
 import DisableInspect from "@/components/DisableInspect";
@@ -88,32 +89,22 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Language cookie (written by the client toggle) lets the SERVER render the
+  // correct lang/dir on <html> during SSR — no post-hydration flip, no layout
+  // shift. Note: the html dir attribute here serves semantics/assistive tech;
+  // the LAYOUT direction of html/body is pinned LTR in globals.css (Android
+  // Chromium viewport-inflation isolation) and the visual RTL is applied by
+  // the .main-layout-wrapper inside LanguageProvider.
+  const langCookie = (await cookies()).get("lalooba-lang")?.value;
+  const initialLang = langCookie === "ar" ? "ar" : "en";
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={initialLang} dir={initialLang === "ar" ? "rtl" : "ltr"} suppressHydrationWarning>
       <head>
-        {/* ROOT-CAUSE FIX (Arabic RTL offset): language is stored in
-            localStorage, which the server can't read, so <html> was rendered
-            LTR and only flipped to dir="rtl" in a post-hydration effect. That
-            LTR→RTL flip after first paint is what left Chrome/Edge/Samsung
-            Internet scrolled to the right (Safari happened to reflow cleanly).
-            This tiny script runs BEFORE the browser paints the body and sets
-            dir/lang synchronously, so the very first paint is already correct
-            in the saved language — no flip, no offset. suppressHydrationWarning
-            above prevents a mismatch warning since the client now differs from
-            the server-rendered default. */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html:
-              "(function(){try{var l=window.localStorage.getItem('lalooba-lang');" +
-              "if(l==='ar'){document.documentElement.lang='ar';document.documentElement.dir='rtl';}" +
-              "else{document.documentElement.lang='en';document.documentElement.dir='ltr';}}catch(e){}})();",
-          }}
-        />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link
@@ -127,7 +118,7 @@ export default function RootLayout({
           Skip to content
         </a>
         <DisableInspect />
-        <LanguageProvider>
+        <LanguageProvider initialLang={initialLang}>
           <RouteAnnouncer />
           <GeolocationDetector />
           {/* pb-16 on mobile only reserves space for the fixed bottom nav so

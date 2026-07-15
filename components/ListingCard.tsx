@@ -151,7 +151,7 @@ export default function ListingCard({
       <div className="p-3">
         {listing.contactForPrice ? (
           <p className="mb-0.5">
-            <span className="text-sm font-bold text-orange-600">{t("contact_for_price")}</span>
+            <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-sm font-bold text-emerald-700">{t("contact_for_price")}</span>
           </p>
         ) : (
           <p className="mb-0.5 flex items-baseline gap-1">

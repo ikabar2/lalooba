@@ -42,6 +42,27 @@ body {
   max-width: 100%;
   margin: 0;
   padding: 0;
+  /* ANDROID CHROMIUM RTL VIEWPORT-INFLATION ISOLATION.
+     On Android Chromium, absolute/fixed/transformed boxes reaching negative-X
+     coordinates can inflate the ROOT layout viewport before overflow rules
+     apply — under a root RTL direction this loads the page scrolled fully to
+     the right (iOS/desktop unaffected). The fix decouples contexts: the
+     browser's root scroll context stays LTR forever (this rule), and the
+     app's visual direction is applied one level down, on
+     .main-layout-wrapper (rendered by LanguageProvider with dir="rtl" when
+     Arabic). Direction inheritance from the wrapper gives users a fully RTL
+     experience; the root the browser scrolls never becomes RTL, so the
+     inflation bug has nothing to anchor to. The dir attribute kept on <html>
+     serves assistive tech / :lang() semantics only — this declaration wins
+     for layout. */
+  direction: ltr;
+}
+
+/* The single carrier of visual direction (see note above). Fills the root so
+   backgrounds/height behave exactly as before. */
+.main-layout-wrapper {
+  min-height: 100vh;
+  width: 100%;
 }
 
 /* Media never forces the page wider than its container — a large image or

@@ -81,7 +81,7 @@ export default function ListingDetailBody({ listing }: { listing: Listing }) {
             {listing.title[lang]}
           </h1>
           {listing.contactForPrice ? (
-            <p className="mb-3 text-xl font-bold text-orange-600">{t("contact_for_price")}</p>
+            <p className="mb-3 inline-block rounded-lg bg-emerald-50 px-2.5 py-1 text-xl font-bold text-emerald-700">{t("contact_for_price")}</p>
           ) : (
             <p className="mb-1 text-xl font-bold text-navy-800">
               {currencyForCountry[listing.country]} {listing.price.toLocaleString("en-US")}

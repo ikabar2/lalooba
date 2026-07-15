@@ -17,6 +17,7 @@ const categoryKeys: TranslationKey[] = [
   "cat_homemade",
   "cat_crafts",
   "cat_electronics",
+  "cat_perfumes",
   "cat_cars",
   "cat_barbershop",
   "cat_tax",

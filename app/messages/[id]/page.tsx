@@ -61,11 +61,17 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
   const otherRaw = conv.participant_one === userId ? conv.p2 : conv.p1;
   const other = one(otherRaw);
 
-  const { data: initialMessages } = await supabase
+  // Newest 200 messages, then reversed to chronological for display. Fetching
+  // desc+limit keeps giant long-running conversations from pulling their
+  // entire history on every open (unbounded growth); 200 comfortably covers
+  // the visible scrollback, and realtime appends anything newer live.
+  const { data: newestFirst } = await supabase
     .from("messages")
     .select("id, sender_id, content, created_at, read_at")
     .eq("conversation_id", id)
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: false })
+    .limit(200);
+  const initialMessages = (newestFirst ?? []).slice().reverse();
 
   // Mark everything the current user has received in this thread as read,
   // now that they've opened it. Persisted server-side (messages.read_at), so

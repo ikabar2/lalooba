@@ -54,7 +54,7 @@ export default function PromoBanner({
               Lalooba
             </span>
             <span className="arabic text-2xl text-gold-200 sm:text-3xl" style={{ fontWeight: 900 }}>
-              لالوبا
+              لالوبة
             </span>
           </div>
           <p className="font-display text-xl font-medium leading-snug text-white sm:text-2xl">
