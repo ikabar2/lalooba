@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   // ones (required for valid Open Graph and canonical tags).
   metadataBase: safeUrl(siteUrl),
   title: {
-    default: "Lalooba — diaspora  Marketplace & Delivery Service",
+    default: "Lalooba — Community Marketplace & Delivery Service",
     // Child pages set just their own title; this appends the brand.
     template: "%s | Lalooba",
   },
@@ -48,7 +48,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     siteName: "Lalooba",
-    title: "Lalooba — diaspora  Marketplace & Delivery Service",
+    title: "Lalooba — Community Marketplace & Delivery Service",
     description:
       "A free bilingual community marketplace for the Sudanese diaspora in Canada and the US. Buy, sell, and send items home with trusted travelers.",
     url: siteUrl,
@@ -57,7 +57,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Lalooba — diaspora  Marketplace & Delivery Service",
+    title: "Lalooba — Community Marketplace & Delivery Service",
     description:
       "A free bilingual community marketplace for the Sudanese diaspora in Canada and the US.",
   },

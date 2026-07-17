@@ -18,6 +18,11 @@ function LoginForm() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    // Double-submit guard at the HANDLER, not just the button. A disabled
+    // button doesn't stop programmatic submits or a second Enter press that
+    // lands before React re-renders — two signInWithPassword calls in flight
+    // race each other and can burn the auth rate limit.
+    if (loading) return;
     setError(null);
     setLoading(true);
 
@@ -51,13 +56,18 @@ function LoginForm() {
       const isSafe =
         raw.startsWith("/") && !raw.startsWith("//") && !/^\/\\|:/.test(raw);
       const redirectTo = isSafe ? raw : "/";
+      // Clear the spinner BEFORE navigating. router.push() doesn't unmount
+      // this component synchronously — if the target route is slow, blocked,
+      // or resolves to the current path, loading stayed true forever and the
+      // button was stuck on "Logging in…" with no way to retry. Sign-in has
+      // already succeeded at this point, so releasing the button is correct.
+      setLoading(false);
       router.push(redirectTo);
       router.refresh(); // re-runs Server Components so the header reflects the new session
     } catch (err) {
       setLoading(false);
-      setError(
-        "Log in isn't available yet — the site isn't connected to a Supabase project. (.env.local missing or invalid.)"
-      );
+      console.error("[login] unexpected error:", err);
+      setError("Sign-in isn't available right now. Please refresh and try again in a moment.");
     }
   }
 

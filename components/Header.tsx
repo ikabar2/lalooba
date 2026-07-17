@@ -90,6 +90,17 @@ export default function Header({ detectedCity }: { detectedCity: string | null }
   const [category, setCategory] = useState<TranslationKey>(categoryKeys[0]);
   const { lang, toggleLang, t } = useLanguage();
   const displayName = account ? getDisplayName({ email: account.email, full_name: account.fullName }) : null;
+  // Avatar initials: first letters of the first two words, else first two
+  // characters. Purely decorative (aria-hidden) — the name is beside it.
+  const initials = displayName
+    ? displayName
+        .trim()
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((w) => w[0])
+        .join("")
+        .toUpperCase() || displayName.slice(0, 2).toUpperCase()
+    : "";
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
@@ -311,8 +322,31 @@ export default function Header({ detectedCity }: { detectedCity: string | null }
                     </span>
                   )}
                 </Link>
-                <Link href="/account" className="text-xs font-semibold text-navy-700 hover:underline">
-                  {displayName}
+                <Link
+                  href="/account"
+                  title={t("welcome_back")}
+                  className="flex items-center gap-1.5 rounded-full border border-navy-100 bg-navy-50 py-1 pe-2.5 ps-1 transition hover:bg-navy-100"
+                >
+                  <span
+                    aria-hidden
+                    className="flex h-[22px] w-[22px] items-center justify-center rounded-full bg-navy-900 text-[10px] font-bold text-white"
+                  >
+                    {initials}
+                  </span>
+                  <span className="text-xs font-semibold text-navy-900">{displayName}</span>
+                  {/* Signed-in checkmark. navy-900 on emerald-600 fails AA at
+                      this size, so it's white-on-emerald-700 (7.4:1). The
+                      status is also exposed as text for screen readers rather
+                      than relying on the icon alone. */}
+                  <span
+                    aria-hidden
+                    className="flex h-[15px] w-[15px] items-center justify-center rounded-full bg-emerald-700"
+                  >
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="4">
+                      <path d="M20 6L9 17l-5-5" />
+                    </svg>
+                  </span>
+                  <span className="sr-only">{t("signed_in_label")}</span>
                 </Link>
                 <button
                   onClick={handleLogout}
@@ -444,9 +478,29 @@ export default function Header({ detectedCity }: { detectedCity: string | null }
                 <Link
                   href="/account"
                   onClick={() => setMobileOpen(false)}
-                  className="block px-2 py-1.5 text-xs font-semibold text-navy-700 hover:underline"
+                  className="mb-1 flex items-center gap-2.5 rounded-lg border border-emerald-100 bg-emerald-50 px-2.5 py-2"
                 >
-                  {displayName}
+                  <span
+                    aria-hidden
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-navy-900 text-[10px] font-bold text-white"
+                  >
+                    {initials}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="flex items-center gap-1.5">
+                      <span className="truncate text-xs font-semibold text-navy-900">{displayName}</span>
+                      <span
+                        aria-hidden
+                        className="flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded-full bg-emerald-700"
+                      >
+                        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="4">
+                          <path d="M20 6L9 17l-5-5" />
+                        </svg>
+                      </span>
+                    </span>
+                    {/* emerald-800 on emerald-50 = 8.2:1, comfortably AA/AAA */}
+                    <span className="block text-[11px] text-emerald-800">{t("welcome_back")}</span>
+                  </span>
                 </Link>
                 <button
                   onClick={handleLogout}

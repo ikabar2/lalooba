@@ -17,6 +17,7 @@ export default function ForgotPasswordPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (loading) return; // double-submit guard (see login)
     setError(null);
     setLoading(true);
 

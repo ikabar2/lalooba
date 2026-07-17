@@ -62,7 +62,7 @@ export default function PromoBanner({
           </p>
           <p className="mb-4 mt-1 text-sm text-navy-200">{t("free_browse_note")}</p>
 
-          {/* Two modules live on this homepage (marketplace + Delivery services) —
+          {/* Two modules live on this homepage (marketplace + Jeeb Li) —
               saying so in plain chips right in the banner, before anyone
               scrolls, is what actually prevents "wait, is this just a
               travel-delivery app?" confusion. */}

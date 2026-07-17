@@ -17,7 +17,7 @@ type PendingImage = {
   previewUrl: string;
 };
 
-const MAX_IMAGES = 6;
+const MAX_IMAGES = 4;
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB — matches the bucket's file_size_limit
 const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/avif"];
 
@@ -47,6 +47,7 @@ export default function PostListingPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [convertingPhoto, setConvertingPhoto] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
 
   // Seller onboarding check: does this account already have a phone on file?
   // Uses the my_phone() RPC (owner-only read path from migration 014) since
@@ -74,6 +75,22 @@ export default function PostListingPage() {
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     e.target.value = ""; // allow re-selecting the same file again later
+    await addFiles(files);
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragActive(false);
+    // Only image files — dragging a folder or a text selection onto the zone
+    // yields entries addFiles would reject anyway; filtering here keeps the
+    // error list clean.
+    const files = Array.from(e.dataTransfer.files ?? []);
+    void addFiles(files);
+  }
+
+  // Shared by the file picker and the drag-and-drop zone so both paths get
+  // identical validation, HEIC conversion and slot-limit handling.
+  async function addFiles(files: File[]) {
     if (files.length === 0) return;
 
     setConvertingPhoto(true);
@@ -293,10 +310,7 @@ export default function PostListingPage() {
         <h1 className="mb-1 font-display text-2xl font-medium text-navy-900">
           {t("post_heading")}
         </h1>
-        <p className="mb-6 text-sm text-navy-600">
-          Free to post. New, unverified accounts may have listings held for
-          quick review — that&apos;s automatic, not personal.
-        </p>
+        <p className="mb-6 text-sm text-navy-600">{t("post_subhead")}</p>
 
         <form onSubmit={handleSubmit} className="rounded-xl border border-navy-100 bg-white p-6">
           {error && (
@@ -305,12 +319,73 @@ export default function PostListingPage() {
 
           {/* Photos first — this is what actually drives clicks, so it
               shouldn't be an afterthought at the bottom of the form */}
-          <label className="mb-1 block text-xs font-semibold text-navy-700">
-            {t("post_photos")} ({images.length}/{MAX_IMAGES})
-          </label>
-          <p className="mb-2 text-xs text-navy-500">
-            Add a few angles — listings with multiple photos get more messages.
-          </p>
+          <div className="mb-2 flex items-center gap-2">
+            <span
+              aria-hidden
+              className="flex h-5 w-5 items-center justify-center rounded-full bg-navy-900 text-[11px] font-bold text-white"
+            >
+              1
+            </span>
+            <span className="text-sm font-semibold text-navy-900">{t("post_step_photos")}</span>
+            <span className="text-xs text-navy-500">
+              {images.length}/{MAX_IMAGES}
+            </span>
+          </div>
+
+          {/* Prominent drop zone. Hidden once every slot is full so it can't
+              imply an action that would be rejected. Drag events are also
+              accepted on the whole zone (not just the button) — the label
+              wrapper makes the entire area keyboard- and click-activatable
+              via the file input it points at. */}
+          {images.length < MAX_IMAGES && (
+            <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragActive(true);
+              }}
+              onDragLeave={() => setDragActive(false)}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  fileInputRef.current?.click();
+                }
+              }}
+              className={`mb-3 cursor-pointer rounded-xl border-2 border-dashed px-4 py-6 text-center transition ${
+                dragActive
+                  ? "border-gold-200 bg-gold-50"
+                  : "border-navy-200 bg-navy-50/40 hover:border-gold-200 hover:bg-gold-50/40"
+              }`}
+            >
+              <svg
+                aria-hidden
+                width="26"
+                height="26"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#FF4500"
+                strokeWidth="2"
+                className="mx-auto"
+              >
+                <path d="M12 16V4m0 0L8 8m4-4l4 4" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M4 15v3a2 2 0 002 2h12a2 2 0 002-2v-3" strokeLinecap="round" />
+              </svg>
+              {/* Touch devices can't drag files — show the tap wording there. */}
+              <p className="mt-1.5 text-sm font-bold text-navy-900">
+                <span className="hidden sm:inline">{t("post_photos_hint")}</span>
+                <span className="sm:hidden">{t("post_photos_tap")}</span>
+              </p>
+              <p className="mt-0.5 text-xs text-navy-500">
+                <span className="hidden sm:inline">
+                  {t("post_photos_browse")} ·{" "}
+                </span>
+                {t("post_photos_meta")}
+              </p>
+            </div>
+          )}
 
           <div className="mb-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
             {images.map((img, i) => (
@@ -319,13 +394,13 @@ export default function PostListingPage() {
                 <img src={img.previewUrl} alt="" className="h-full w-full object-cover" />
                 {i === 0 && (
                   <span className="absolute bottom-1 left-1 rounded bg-navy-900/80 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                    Cover
+                    {t("post_photo_cover")}
                   </span>
                 )}
                 <button
                   type="button"
                   onClick={() => removeImage(i)}
-                  aria-label="Remove photo"
+                  aria-label={t("post_photo_remove")}
                   className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white"
                 >
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -384,15 +459,34 @@ export default function PostListingPage() {
             </div>
           )}
 
-          <label className="mb-1 mt-4 block text-xs font-semibold text-navy-700">{t("post_title")}</label>
+          <div className="mb-2 mt-6 flex items-center gap-2">
+            <span
+              aria-hidden
+              className="flex h-5 w-5 items-center justify-center rounded-full bg-navy-900 text-[11px] font-bold text-white"
+            >
+              2
+            </span>
+            <span className="text-sm font-semibold text-navy-900">{t("post_step_what")}</span>
+          </div>
+          <label className="mb-1 block text-xs font-semibold text-navy-700">{t("post_title")}</label>
           <input
             required
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder={t("post_title_ph")}
-            className="mb-4 w-full rounded-md border border-navy-100 px-3 py-2 text-sm outline-none focus:border-navy-400"
+            className="mb-1 w-full rounded-md border border-navy-100 px-3 py-2 text-sm outline-none focus:border-navy-400"
           />
+          <p className="mb-4 text-xs text-navy-500">{t("post_title_help")}</p>
 
+          <div className="mb-2 mt-6 flex items-center gap-2">
+            <span
+              aria-hidden
+              className="flex h-5 w-5 items-center justify-center rounded-full bg-navy-900 text-[11px] font-bold text-white"
+            >
+              3
+            </span>
+            <span className="text-sm font-semibold text-navy-900">{t("post_step_price")}</span>
+          </div>
           <label className="mb-1 block text-xs font-semibold text-navy-700">
             {t("post_price")} ({country === "US" ? "USD" : "CAD"})
           </label>
@@ -424,6 +518,7 @@ export default function PostListingPage() {
                 required
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
+                placeholder={t("post_city_ph")}
                 className="w-full rounded-md border border-navy-100 px-3 py-2 text-sm outline-none focus:border-navy-400"
               />
             </div>
@@ -506,13 +601,16 @@ export default function PostListingPage() {
             <p className="mb-3 text-xs font-medium text-navy-600">{uploadProgress}</p>
           )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-md bg-navy-900 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-navy-800 disabled:opacity-50"
-          >
-            {loading ? t("post_publishing") : t("post_publish")}
-          </button>
+          <div className="mt-6 border-t border-navy-100 pt-4">
+            <p className="mb-3 text-xs text-navy-500">{t("post_privacy_note")}</p>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-md bg-navy-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-navy-800 disabled:opacity-50"
+            >
+              {loading ? t("post_publishing") : t("post_publish")}
+            </button>
+          </div>
         </form>
       </main>
 

@@ -20,7 +20,22 @@ let client: Client | null = null;
 
 function build(): Client | null {
   if (!cachedUrl || !cachedKey) return null;
-  if (!client) client = createBrowserClient(cachedUrl, cachedKey);
+  if (!client) {
+    // Sessions persist until the user explicitly signs out.
+    //  • persistSession   — keep the session in the cookie store across
+    //                       reloads and browser restarts.
+    //  • autoRefreshToken — silently exchange the refresh token before the
+    //                       access token expires, so an open tab never gets
+    //                       kicked out mid-use.
+    // These are the supabase-js defaults, but they're set explicitly here so
+    // a future dependency bump can't silently flip them and start signing
+    // people out. NOTE: the matching idle/absolute timeouts live in the
+    // Supabase dashboard (Authentication → Sessions) — code alone can't
+    // override a server-side time-box.
+    client = createBrowserClient(cachedUrl, cachedKey, {
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+    });
+  }
   return client;
 }
 

@@ -23,6 +23,7 @@ export default function SignUpPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (loading) return; // double-submit guard (see login)
     setError(null);
 
     // Phone is OPTIONAL at signup — email-only accounts are welcome. Sellers
