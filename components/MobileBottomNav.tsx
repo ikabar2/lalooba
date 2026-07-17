@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLanguage } from "@/lib/language-context";
-import { createClient, type SupabaseBrowserClient } from "@/lib/supabase/client";
+import { refreshUnreadCount, useUnreadCount } from "@/lib/use-unread-count";
 import type { TranslationKey } from "@/lib/translations";
 
 // Persistent mobile bottom navigation — the standard native-app pattern for
@@ -87,53 +87,12 @@ const items: NavItem[] = [
 export default function MobileBottomNav() {
   const pathname = usePathname();
   const { t } = useLanguage();
-  const [unread, setUnread] = useState(0);
+  const unread = useUnreadCount();
 
-  // Keep the Messages-tab badge current. Three triggers, so the count is
-  // right regardless of how a new message arrives or gets read:
-  //   1. on navigation (opening a thread marks it read → badge drops),
-  //   2. a lightweight poll every 30s (covers new inbound messages even if
-  //      realtime is unavailable on the project),
-  //   3. when the tab regains focus/visibility (returning to a backgrounded
-  //      PWA/tab immediately reflects anything that arrived while away).
+  // Opening a thread marks it read server-side; ask the shared counter to
+  // re-fetch on navigation so the badge drops immediately, not at next poll.
   useEffect(() => {
-    let active = true;
-    const supabase = createClient();
-    if (!supabase) return;
-
-    // Take the client as a typed parameter (not a captured closure variable) —
-    // TS reliably keeps the non-null type through a parameter, whereas it
-    // re-widens a captured outer variable back to `| null` inside nested
-    // functions. Same pattern as Header's refreshUnread.
-    async function refresh(client: SupabaseBrowserClient) {
-      try {
-        const { data } = await client.auth.getUser();
-        if (!data.user) {
-          if (active) setUnread(0);
-          return;
-        }
-        const { data: count } = await client.rpc("unread_message_count");
-        if (active) setUnread(typeof count === "number" ? count : 0);
-      } catch {
-        if (active) setUnread(0);
-      }
-    }
-
-    const run = () => refresh(supabase);
-    run();
-    const interval = setInterval(run, 30000);
-    const onVisible = () => {
-      if (document.visibilityState === "visible") run();
-    };
-    document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("focus", run);
-
-    return () => {
-      active = false;
-      clearInterval(interval);
-      document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("focus", run);
-    };
+    refreshUnreadCount();
   }, [pathname]);
 
   return (

@@ -7,7 +7,8 @@ import Logo from "./Logo";
 import CountrySelector from "./CountrySelector";
 import LocationChip from "./LocationChip";
 import { useLanguage } from "@/lib/language-context";
-import { createClient, type SupabaseBrowserClient } from "@/lib/supabase/client";
+import { createClient, createClientAsync, type SupabaseBrowserClient } from "@/lib/supabase/client";
+import { refreshUnreadCount, useUnreadCount } from "@/lib/use-unread-count";
 import { getDisplayName } from "@/lib/user-display";
 import type { TranslationKey } from "@/lib/translations";
 
@@ -85,7 +86,7 @@ export default function Header({ detectedCity }: { detectedCity: string | null }
   const [account, setAccount] = useState<{ email: string | null; fullName: string | null } | null>(
     null
   );
-  const [unreadCount, setUnreadCount] = useState(0);
+  const unreadCount = useUnreadCount();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<TranslationKey>(categoryKeys[0]);
   const { lang, toggleLang, t } = useLanguage();
@@ -97,30 +98,24 @@ export default function Header({ detectedCity }: { detectedCity: string | null }
         .trim()
         .split(/\s+/)
         .slice(0, 2)
-        .map((w) => w[0])
+        .map((w) => Array.from(w)[0] ?? "")
         .join("")
         .toUpperCase() || displayName.slice(0, 2).toUpperCase()
     : "";
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
+    let cancelled = false;
     let messageChannel: ReturnType<SupabaseBrowserClient["channel"]> | undefined;
-    let pollInterval: ReturnType<typeof setInterval> | undefined;
-    let onVisible: (() => void) | undefined;
-
-    async function refreshUnread(supabase: SupabaseBrowserClient) {
-      try {
-        const { data: unread } = await supabase.rpc("unread_message_count");
-        setUnreadCount(typeof unread === "number" ? unread : 0);
-      } catch {
-        setUnreadCount(0);
-      }
-    }
 
     async function loadAccount(userId: string, email: string | null) {
       try {
-        const supabase = createClient();
-        if (!supabase) return;
+        // Async accessor: this can run before LanguageProvider primes the
+        // runtime config (child effects fire first), and the sync accessor
+        // would return null there — leaving the account/badge blank until a
+        // route change. Awaiting the primed client fixes that degraded path.
+        const supabase = await createClientAsync();
+        if (!supabase || cancelled) return;
         const { data: profile } = await supabase
           .from("profiles")
           .select("display_name, full_name")
@@ -130,19 +125,10 @@ export default function Header({ detectedCity }: { detectedCity: string | null }
           email,
           fullName: profile?.display_name ?? profile?.full_name ?? null,
         });
-        // Initial unread count for the notification badge.
-        await refreshUnread(supabase);
-
-        // Resilience fallback (independent of realtime, which can silently
-        // disconnect or be disabled on the project): poll every 30s and
-        // refresh whenever the tab regains focus/visibility.
-        if (pollInterval) clearInterval(pollInterval);
-        pollInterval = setInterval(() => refreshUnread(supabase), 30000);
-        onVisible = () => {
-          if (document.visibilityState === "visible") refreshUnread(supabase);
-        };
-        document.addEventListener("visibilitychange", onVisible);
-        window.addEventListener("focus", onVisible);
+        // Unread badge: the shared hook owns polling + focus/visibility
+        // fallback (lib/use-unread-count). Here we just ask it to re-fetch
+        // now that we know a user is signed in.
+        refreshUnreadCount();
 
         // Real-time: bump the badge the moment a new message arrives in any
         // of the user's conversations. We subscribe to all message inserts
@@ -159,7 +145,7 @@ export default function Header({ detectedCity }: { detectedCity: string | null }
               // Only react to messages the user RECEIVED (not their own sends).
               const senderId = (payload.new as { sender_id?: string })?.sender_id;
               if (senderId && senderId !== userId) {
-                refreshUnread(supabase);
+                refreshUnreadCount();
               }
             }
           )
@@ -168,7 +154,7 @@ export default function Header({ detectedCity }: { detectedCity: string | null }
           .on(
             "postgres_changes",
             { event: "UPDATE", schema: "public", table: "messages" },
-            () => refreshUnread(supabase)
+            () => refreshUnreadCount()
           )
           .subscribe();
       } catch {
@@ -179,51 +165,56 @@ export default function Header({ detectedCity }: { detectedCity: string | null }
       }
     }
 
-    try {
-      const supabase = createClient();
-      if (!supabase) return;
-      supabase.auth
-        .getUser()
-        .then(({ data }) => {
-          if (data.user) loadAccount(data.user.id, data.user.email ?? null);
+    (async () => {
+      try {
+        // Async accessor for the same reason as loadAccount: this effect can
+        // run before config priming in the degraded path, where the sync
+        // accessor stays null and the header would never show auth state.
+        const supabase = await createClientAsync();
+        if (!supabase || cancelled) return;
+        supabase.auth
+          .getUser()
+          .then(({ data }) => {
+            if (cancelled) return;
+            if (data.user) loadAccount(data.user.id, data.user.email ?? null);
+            else {
+              setAccount(null);
+              refreshUnreadCount(); // resolves to 0 for signed-out users
+            }
+          })
+          .catch(() => setAccount(null)); // network hiccup on initial check — treat as logged out, not a crash
+
+        const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+          if (session?.user) loadAccount(session.user.id, session.user.email ?? null);
           else {
             setAccount(null);
-            setUnreadCount(0);
+            refreshUnreadCount(); // resolves to 0 for signed-out users
+            if (messageChannel) {
+              supabase.removeChannel(messageChannel);
+              messageChannel = undefined;
+            }
           }
-        })
-        .catch(() => setAccount(null)); // network hiccup on initial check — treat as logged out, not a crash
-
-      const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-        if (session?.user) loadAccount(session.user.id, session.user.email ?? null);
-        else {
-          setAccount(null);
-          setUnreadCount(0);
-          if (messageChannel) {
-            supabase.removeChannel(messageChannel);
-            messageChannel = undefined;
-          }
-        }
-      });
-      unsubscribe = () => {
-        listener.subscription.unsubscribe();
-        if (messageChannel) supabase.removeChannel(messageChannel);
-        if (pollInterval) clearInterval(pollInterval);
-        if (onVisible) {
-          document.removeEventListener("visibilitychange", onVisible);
-          window.removeEventListener("focus", onVisible);
-        }
-      };
-    } catch (err) {
-      console.warn("[Header] Supabase auth check skipped:", err);
-    }
-    return () => unsubscribe?.();
+        });
+        unsubscribe = () => {
+          listener.subscription.unsubscribe();
+          if (messageChannel) supabase.removeChannel(messageChannel);
+        };
+      } catch (err) {
+        console.warn("[Header] Supabase auth check skipped:", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
   }, []);
 
   async function handleLogout() {
     // Clear local user state immediately so the UI reflects logout even if
-    // the network call is slow.
+    // the network call is slow. (The badge clears via the SIGNED_OUT auth
+    // listener, which triggers the shared unread refresh at the right time —
+    // refreshing here would race signOut and re-fetch the old count.)
     setAccount(null);
-    setUnreadCount(0);
     try {
       const supabase = createClient();
       if (!supabase) return;

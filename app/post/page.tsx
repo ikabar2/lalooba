@@ -82,9 +82,12 @@ export default function PostListingPage() {
     e.preventDefault();
     setDragActive(false);
     // Only image files — dragging a folder or a text selection onto the zone
-    // yields entries addFiles would reject anyway; filtering here keeps the
-    // error list clean.
-    const files = Array.from(e.dataTransfer.files ?? []);
+    // yields non-image entries; filter them here so the user isn't shown a
+    // rejection list for things they never meant to upload. HEIC/HEIF name
+    // matching included because some browsers report an empty MIME for them.
+    const files = Array.from(e.dataTransfer.files ?? []).filter(
+      (f) => f.type.startsWith("image/") || /\.hei[cf]$/i.test(f.name)
+    );
     void addFiles(files);
   }
 
@@ -327,7 +330,7 @@ export default function PostListingPage() {
               1
             </span>
             <span className="text-sm font-semibold text-navy-900">{t("post_step_photos")}</span>
-            <span className="text-xs text-navy-500">
+            <span className="text-xs text-navy-500" aria-live="polite">
               {images.length}/{MAX_IMAGES}
             </span>
           </div>
@@ -348,6 +351,7 @@ export default function PostListingPage() {
               onClick={() => fileInputRef.current?.click()}
               role="button"
               tabIndex={0}
+              aria-label={`${t("post_step_photos")} — ${images.length}/${MAX_IMAGES}`}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
