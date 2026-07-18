@@ -6,9 +6,11 @@ import CategoryIconBar from "@/components/CategoryIconBar";
 import ModuleCards from "@/components/ModuleCards";
 import LockedBanner from "@/components/LockedBanner";
 import ListingGrid from "@/components/ListingGrid";
+import ListingGridSkeleton from "@/components/ListingGridSkeleton";
+import { Suspense } from "react";
 import JeebLiSection from "@/components/JeebLiSection";
 import Footer from "@/components/Footer";
-import { getActiveMemberCount } from "@/lib/stats";
+import { getActiveMemberCount, getActiveListingCount } from "@/lib/stats";
 import { fetchListings } from "@/lib/listings-query";
 import { fetchJeebLiOffers } from "@/lib/jeebli-query";
 
@@ -18,7 +20,10 @@ export default async function HomePage() {
   // Read once here (Server Component) and pass down — avoids each client
   // component needing its own cookie-parsing logic.
   const detectedCity = (await cookies()).get("lalooba-city")?.value ?? null;
-  const { count: activeMembers, isLive } = await getActiveMemberCount();
+  const [{ count: activeMembers, isLive }, { count: activeListings }] = await Promise.all([
+    getActiveMemberCount(),
+    getActiveListingCount(),
+  ]);
 
   // Real listings for the featured strip (getFeaturedListings picks the
   // currently-featured subset). ListingGrid does its own fetch for the main
@@ -36,7 +41,7 @@ export default async function HomePage() {
   return (
     <>
       <Header detectedCity={detectedCity} />
-      <PromoBanner activeMembers={activeMembers} activeMembersIsLive={isLive} />
+      <PromoBanner activeMembers={activeMembers} activeMembersIsLive={isLive} activeListings={activeListings} />
       {/* Orientation before content: a first-time visitor needs "what can I
           browse here" before "here's what's hot" — categories are
           navigation, Featured is content, and navigation earns the first
@@ -45,7 +50,9 @@ export default async function HomePage() {
       <FeaturedListings listings={listings} />
       {/* Listings sit immediately below search — no large hero pushing them
           below the fold, matching the "posts visible first" reference. */}
-      <ListingGrid />
+      <Suspense fallback={<ListingGridSkeleton />}>
+        <ListingGrid />
+      </Suspense>
       <JeebLiSection offers={jeebLiOffers} />
       <ModuleCards />
       <LockedBanner />

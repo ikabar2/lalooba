@@ -10,6 +10,7 @@ import { toValidNANP } from "@/lib/phone";
 import { safeRandomId } from "@/lib/safe-random-id";
 import { isHeic, convertHeicToJpeg } from "@/lib/heic";
 import Header from "@/components/Header";
+import Link from "next/link";
 import Footer from "@/components/Footer";
 
 type PendingImage = {
@@ -48,6 +49,9 @@ export default function PostListingPage() {
 
   const [convertingPhoto, setConvertingPhoto] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  // Set on successful publish — switches the page to the success screen.
+  // Holds the new listing id so "View my product" can deep-link to it.
+  const [postedId, setPostedId] = useState<string | null>(null);
 
   // Seller onboarding check: does this account already have a phone on file?
   // Uses the my_phone() RPC (owner-only read path from migration 014) since
@@ -271,7 +275,7 @@ export default function PostListingPage() {
     // title_en / city_en (not the old title / city), plus category and
     // currency. title_ar / city_ar are left null — a listing is valid with
     // just the English fields, and the UI falls back to _en when _ar is null.
-    const { error: insertError } = await supabase.from("listings").insert({
+    const { data: inserted, error: insertError } = await supabase.from("listings").insert({
       title_en: title,
       // When "Contact for price" is chosen, store no price (null) and set the
       // flag; otherwise store the entered numeric price.
@@ -288,7 +292,9 @@ export default function PostListingPage() {
       // they don't apply to listings that don't use them.
       quantity: category === "cat_homemade" && quantity ? Number(quantity) : null,
       fulfillment: category === "cat_homemade" ? fulfillment : null,
-    });
+    })
+      .select("id")
+      .single();
 
     setLoading(false);
 
@@ -298,11 +304,74 @@ export default function PostListingPage() {
       return;
     }
 
-    // Navigate to the marketplace and refresh the Router Cache so the
-    // freshly-inserted listing is fetched from the DB immediately, rather
-    // than showing a cached feed that predates the post.
-    router.push("/marketplace");
+    // Success: show the confirmation screen (the previous behavior dumped the
+    // user straight into /marketplace with no acknowledgement at all — they
+    // had to hunt for their own listing to know it worked). Refresh the
+    // Router Cache now so whenever they DO navigate, the feed already
+    // includes the fresh listing.
+    setPostedId(inserted?.id ?? "");
     router.refresh();
+    // Release the preview object URLs — the files are uploaded; keeping the
+    // blobs alive after leaving the form would just leak memory.
+    images.forEach((img) => URL.revokeObjectURL(img.previewUrl));
+  }
+
+  if (postedId !== null) {
+    return (
+      <>
+        <Header detectedCity={null} />
+        <main className="flex min-h-[70vh] flex-col items-center justify-center px-5 py-10">
+          <div className="w-full max-w-sm rounded-2xl border border-navy-100 bg-white p-8 text-center shadow-sm">
+            {/* Animated checkmark: badge pops, ring ripples, check draws.
+                All of it is disabled by the prefers-reduced-motion block in
+                globals.css — those users see the final state instantly. */}
+            <div className="relative mx-auto mb-4 h-16 w-16">
+              <span aria-hidden className="post-success-ring absolute inset-0 rounded-full bg-emerald-700" />
+              <span className="post-success-badge relative flex h-16 w-16 items-center justify-center rounded-full bg-emerald-700">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path
+                    className="post-success-check"
+                    d="M5 12.5l4.5 4.5L19 7.5"
+                    stroke="#fff"
+                    strokeWidth="2.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </span>
+            </div>
+            <h1 className="post-success-rise-1 mb-1 font-display text-2xl font-medium text-navy-900">
+              {t("post_success_title")}
+            </h1>
+            <p className="post-success-rise-2 mb-6 text-sm text-navy-600">{t("post_success_body")}</p>
+            <div className="post-success-rise-3">
+              {postedId !== "" && (
+                <Link
+                  href={`/listing/${postedId}`}
+                  className="mb-2 block w-full rounded-lg bg-navy-900 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-navy-800"
+                >
+                  {t("post_success_view")}
+                </Link>
+              )}
+              <Link
+                href="/"
+                className="mb-2.5 block w-full rounded-lg border border-navy-200 px-5 py-2.5 text-sm font-bold text-navy-900 transition hover:bg-navy-50"
+              >
+                {t("post_success_home")}
+              </Link>
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="text-xs font-semibold text-navy-500 underline underline-offset-2 hover:text-navy-800"
+              >
+                {t("post_success_again")}
+              </button>
+            </div>
+          </div>
+        </main>
+        <Footer />
+      </>
+    );
   }
 
   return (

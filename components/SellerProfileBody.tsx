@@ -67,11 +67,21 @@ export default function SellerProfileBody({
               )}
             </div>
             <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-navy-600">
-              <span className="flex items-center gap-1">
-                <Stars rating={seller.rating} />
-                <span className="font-semibold text-navy-800">{seller.rating.toFixed(1)}</span>
-                <span>({seller.reviewCount})</span>
-              </span>
+              {seller.reviewCount > 0 ? (
+                <span className="flex items-center gap-1">
+                  <Stars rating={seller.rating} />
+                  <span className="font-semibold text-navy-800">{seller.rating.toFixed(1)}</span>
+                  <span>({seller.reviewCount})</span>
+                </span>
+              ) : (
+                /* No reviews yet is NOT a 0.0 rating — empty stars read as
+                   "rated badly" and quietly punish every new seller. Show a
+                   neutral badge instead; the stars appear automatically the
+                   moment a first review exists. */
+                <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700">
+                  {t("seller_new_badge")}
+                </span>
+              )}
               <span>
                 {seller.city[lang]}, {bi(countryNames[seller.country], lang)}
               </span>

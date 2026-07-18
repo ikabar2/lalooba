@@ -163,3 +163,48 @@ a, button {
   .reveal { opacity: 1; animation: none; }
   .reveal:not(.is-visible) { animation: none; opacity: 1; }
 }
+
+/* ── Post-success checkmark animation ─────────────────────────────────────
+   Used by the listing-published confirmation screen (app/post). Badge pops,
+   ring ripples outward once, the check stroke draws itself, then the text
+   and buttons rise in sequence. */
+@keyframes post-success-pop {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes post-success-ripple {
+  0% { transform: scale(0.6); opacity: 0.65; }
+  100% { transform: scale(1.9); opacity: 0; }
+}
+@keyframes post-success-draw {
+  to { stroke-dashoffset: 0; }
+}
+@keyframes post-success-rise {
+  0% { transform: translateY(8px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+.post-success-badge { animation: post-success-pop 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.3) both; }
+.post-success-ring { animation: post-success-ripple 0.9s ease-out 0.25s both; }
+.post-success-check {
+  stroke-dasharray: 30;
+  stroke-dashoffset: 30;
+  animation: post-success-draw 0.4s ease-out 0.35s forwards;
+}
+.post-success-rise-1 { animation: post-success-rise 0.4s ease-out 0.5s both; }
+.post-success-rise-2 { animation: post-success-rise 0.4s ease-out 0.62s both; }
+.post-success-rise-3 { animation: post-success-rise 0.4s ease-out 0.74s both; }
+
+/* Vestibular-safety: skip all motion, land on the final state instantly. */
+@media (prefers-reduced-motion: reduce) {
+  .post-success-badge,
+  .post-success-ring,
+  .post-success-check,
+  .post-success-rise-1,
+  .post-success-rise-2,
+  .post-success-rise-3 {
+    animation: none !important;
+  }
+  .post-success-check { stroke-dashoffset: 0; }
+  .post-success-ring { opacity: 0; }
+}

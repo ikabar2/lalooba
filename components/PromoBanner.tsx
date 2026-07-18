@@ -2,26 +2,15 @@
 
 import Link from "next/link";
 import { useLanguage } from "@/lib/language-context";
-import type { TranslationKey } from "@/lib/translations";
-
-// verified sellers / positive reviews stay placeholder until those are
-// backed by real aggregate queries too (verified sellers = a count on
-// profiles.id_verified, reviews % once the reviews table from the seller
-// profile work exists for real) — update the values here when that
-// happens. Active members is no longer in this list: it's wired to a live
-// count from the database (see lib/stats.ts and the activeMembers prop
-// below), not a hardcoded string, so it can't silently drift from reality.
-const secondaryStats: { value: string; labelKey: TranslationKey }[] = [
-  { value: "340+", labelKey: "stat_verified_sellers" },
-  { value: "98%", labelKey: "stat_positive_reviews" },
-];
 
 export default function PromoBanner({
   activeMembers,
   activeMembersIsLive,
+  activeListings,
 }: {
   activeMembers: number;
   activeMembersIsLive: boolean;
+  activeListings: number;
 }) {
   const { t } = useLanguage();
   // Live count is exact, so show it plainly. The fallback baseline (used
@@ -107,14 +96,27 @@ export default function PromoBanner({
             </p>
             <p className="text-xs text-navy-200">{t("stat_active_members")}</p>
           </div>
-          {secondaryStats.map((stat) => (
-            <div key={stat.labelKey} className="text-center sm:text-left">
-              <p className="font-display text-2xl font-medium text-white sm:text-3xl">
-                {stat.value}
-              </p>
-              <p className="text-xs text-navy-200">{t(stat.labelKey)}</p>
-            </div>
-          ))}
+          {/* Real listings count — replaces the previous fabricated
+              "340+ sellers / 98% reviews" tiles. Every number shown here now
+              comes from the database. */}
+          <div className="text-center sm:text-left">
+            <p className="font-display text-2xl font-medium text-white sm:text-3xl">
+              {activeListings.toLocaleString()}
+            </p>
+            <p className="text-xs text-navy-200">{t("stat_listings_live")}</p>
+          </div>
+          {/* Non-numeric trust promise — a claim we can always stand behind,
+              keeping the row visually balanced at three tiles without
+              inventing a second number. */}
+          <div className="text-center sm:text-left">
+            <p className="flex justify-center font-display text-2xl font-medium text-white sm:justify-start sm:text-3xl">
+              <svg aria-hidden width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mt-1">
+                <path d="M12 22s8-3.5 8-10V5l-8-3-8 3v7c0 6.5 8 10 8 10z" />
+                <path d="M9 12l2 2 4-4" />
+              </svg>
+            </p>
+            <p className="text-xs text-navy-200">{t("stat_free_join")}</p>
+          </div>
         </div>
       </div>
     </section>

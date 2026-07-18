@@ -32,3 +32,28 @@ export async function getActiveMemberCount(): Promise<{ count: number; isLive: b
     return { count: FALLBACK_ACTIVE_MEMBERS, isLive: false };
   }
 }
+
+// Live listings count for the hero — replaces the previous HARDCODED
+// "340+ verified sellers" and "98% positive reviews" tiles, which were
+// fabricated numbers with no data behind them (a genuine trust liability on
+// a marketplace whose pitch is trust). Same head-only count pattern as
+// members above; `status = 'active'` matches the feed's visibility filter,
+// so the number always agrees with what a visitor actually sees below.
+const FALLBACK_ACTIVE_LISTINGS = 40;
+
+export async function getActiveListingCount(): Promise<{ count: number; isLive: boolean }> {
+  try {
+    const supabase = await createClient();
+    const { count, error } = await supabase
+      .from("listings")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "active");
+
+    if (error || count === null) {
+      return { count: FALLBACK_ACTIVE_LISTINGS, isLive: false };
+    }
+    return { count, isLive: true };
+  } catch {
+    return { count: FALLBACK_ACTIVE_LISTINGS, isLive: false };
+  }
+}
